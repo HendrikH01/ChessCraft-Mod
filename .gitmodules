@@ -1,0 +1,3 @@
+[submodule "Stockfish-Java"]
+	path = Stockfish-Java
+	url = https://github.com/Niflheim/Stockfish-Java
