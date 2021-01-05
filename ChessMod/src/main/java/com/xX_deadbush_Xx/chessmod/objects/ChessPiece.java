@@ -14,8 +14,6 @@ import net.minecraft.nbt.CompoundNBT;
 import net.minecraft.util.NonNullList;
 import net.minecraft.util.text.ITextComponent;
 import net.minecraft.util.text.StringTextComponent;
-import net.minecraft.util.text.Style;
-import net.minecraft.util.text.TextFormatting;
 import net.minecraft.world.World;
 
 public class ChessPiece extends Item {

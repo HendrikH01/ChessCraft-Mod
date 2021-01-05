@@ -8,13 +8,16 @@ import com.xX_deadbush_Xx.chessmod.game_logic.Util;
 
 import net.minecraft.inventory.container.Slot;
 import net.minecraft.item.ItemStack;
+import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.api.distmarker.OnlyIn;
 
 public class ChessBoardSquareSlot extends ToggleableSlot {
 	
+	@OnlyIn(Dist.CLIENT)
 	public Optional<HighlightMode> highlight = Optional.empty();
 	
-	public ChessBoardSquareSlot(ChessBoard itemHandler, int index, int xPosition, int yPosition, Supplier<Boolean> enabled) {
-		super(itemHandler, index, xPosition, yPosition, enabled);
+	public ChessBoardSquareSlot(ChessBoardContainer container, int index, int xPosition, int yPosition, Supplier<Boolean> enabled) {
+		super(container.getBoard(), index, xPosition, yPosition, enabled);
 	}
 	
 	public ItemStack insertStack(ItemStack stack) {
@@ -47,11 +50,17 @@ public class ChessBoardSquareSlot extends ToggleableSlot {
 		this.getItemHandler().insertItem(this.slotNumber, ItemStack.EMPTY, false);
 	}
 	
+	@OnlyIn(Dist.CLIENT)
+	public void mark(HighlightMode mode) {
+		this.highlight = Optional.of(mode);
+	}
+	
+	@OnlyIn(Dist.CLIENT)
 	public static enum HighlightMode {
-		SELECTED(0x000000),
-		VISIBLE(0x000000),
-		ATTACKING(0x000000),
-		IN_CHECK(0x000000);
+		MOVED(0x8fE5D400),
+		VISIBLE(0x00000000),
+		ATTACKING(0xffE87F45),
+		IN_CHECK(0xffD85D5E);
 
 		public final int color;
 

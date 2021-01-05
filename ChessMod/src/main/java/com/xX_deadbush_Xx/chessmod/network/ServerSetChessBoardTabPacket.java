@@ -34,7 +34,7 @@ public class ServerSetChessBoardTabPacket {
 			public void run() {
 				PlayerEntity player = Minecraft.getInstance().player;
 				if(player.openContainer instanceof ChessBoardContainer && player.openContainer != null) {
-					((ChessBoardContainer)player.openContainer).mode = Mode.values()[msg.tab];
+					((ChessBoardContainer)player.openContainer).setMode(Mode.values()[msg.tab]);
 					
 					if(Minecraft.getInstance().currentScreen instanceof ChessBoardScreen) {
 						((ChessBoardScreen)Minecraft.getInstance().currentScreen).updateMode(Mode.values()[msg.tab]);

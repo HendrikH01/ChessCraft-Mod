@@ -3,7 +3,6 @@ package com.xX_deadbush_Xx.chessmod.network;
 import java.util.function.Supplier;
 
 import com.xX_deadbush_Xx.chessmod.game_logic.ChessBoardContainer;
-import com.xX_deadbush_Xx.chessmod.game_logic.ChessBoardContainer.Mode;
 
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.network.PacketBuffer;

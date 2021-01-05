@@ -1,15 +1,22 @@
 package com.xX_deadbush_Xx.chessmod.game_logic;
 
+import static com.xX_deadbush_Xx.chessmod.game_logic.ChessHelper.*;
+
+import java.util.Optional;
+
+import com.mojang.datafixers.util.Pair;
 import com.xX_deadbush_Xx.chessmod.ChessMod;
+import com.xX_deadbush_Xx.chessmod.client.ChessBoardScreen;
 import com.xX_deadbush_Xx.chessmod.game_logic.inventory.ChessBoard;
 import com.xX_deadbush_Xx.chessmod.game_logic.inventory.ChessBoardSquareSlot;
+import com.xX_deadbush_Xx.chessmod.game_logic.inventory.ChessBoardSquareSlot.HighlightMode;
 import com.xX_deadbush_Xx.chessmod.game_logic.inventory.ChessPieceStorageSlot;
 import com.xX_deadbush_Xx.chessmod.game_logic.inventory.ToggleableSlotInventory;
 import com.xX_deadbush_Xx.chessmod.objects.ChessBoardTile;
 import com.xX_deadbush_Xx.chessmod.objects.ChessPiece;
 import com.xX_deadbush_Xx.chessmod.objects.ModRegistry;
 
-import net.minecraft.entity.item.ItemEntity;
+import net.minecraft.client.Minecraft;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.entity.player.PlayerInventory;
 import net.minecraft.inventory.container.ClickType;
@@ -18,12 +25,16 @@ import net.minecraft.inventory.container.Slot;
 import net.minecraft.item.ItemStack;
 import net.minecraft.network.PacketBuffer;
 import net.minecraft.util.ResourceLocation;
+import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.api.distmarker.OnlyIn;
 
 public class ChessBoardContainer extends Container {
 
 	private ChessBoard board;
-	public Mode mode = Mode.PLAYING;
-
+	public int selectedSlot = -1;
+	private Mode mode = Mode.PLAYING;
+	private int checkedSquare = -1;
+	
     public ChessBoardContainer(final int windowId, final PlayerInventory playerInventory, PacketBuffer buffer) {
 		this(windowId, playerInventory, (ChessBoardTile)Util.getTileEntity(ChessBoardTile.class, playerInventory, buffer));
 	}
@@ -38,9 +49,6 @@ public class ChessBoardContainer extends Container {
     
 	@Override
 	public ItemStack slotClick(int slotId, int dragType, ClickType clickTypeIn, PlayerEntity player) {
-		
-		ChessEngineManager.getPossibleMoves(null, null);
-		
 		if(slotId >= 0) {
 			if(slotId < 64) {
 				return handleBoardClick(slotId, dragType, player);
@@ -50,10 +58,18 @@ public class ChessBoardContainer extends Container {
 				ItemStack slotstack = slot.getStack();
 				ItemStack holding = player.inventory.getItemStack();
 				
-				//if stacks equal do nothing
-				if(slotstack.getItem() == holding.getItem() && ItemStack.areItemStackTagsEqual(slotstack, holding))
-					return slotstack;
-				
+				//if stacks equal remove from hand
+				if(slotstack.getItem() == holding.getItem() && ItemStack.areItemStackTagsEqual(slotstack, holding)) {
+					ItemStack storage = this.inventorySlots.get(Util.getStorageSlotIndex(holding)).getStack();
+					if(storage.getCount() == storage.getMaxStackSize()) {
+						//if storage slot was filled while player was holding item do nothing 
+						return slotstack;
+					} else {
+						storage.grow(1);
+						player.inventory.setItemStack(ItemStack.EMPTY);
+					}
+						return slotstack;
+				}
 				if(!slotstack.isEmpty()) {
 					//try take stack out or swap
 					
@@ -85,10 +101,14 @@ public class ChessBoardContainer extends Container {
 	}
 	
 	private ItemStack handleBoardClick(int slotid, int dragType, PlayerEntity player) {
-		ChessBoardSquareSlot slot = (ChessBoardSquareSlot)this.inventorySlots.get(slotid);
+		//this.side == PieceColor.WHITE ? slotid : getX(slotid)*8 + (7 - getY(slotid))
+		boolean whiteside = getSide() == PieceColor.WHITE;
+
+		int original = whiteside ? slotid : getX(slotid) * 8 + 7 - getY(slotid);
+		ChessBoardSquareSlot slot = (ChessBoardSquareSlot)this.inventorySlots.get(original);
 		ItemStack inslot = slot.getStack();
 		ItemStack holding = player.inventory.getItemStack();
-
+		
 		if (this.mode == Mode.BOARD_EDITOR) {
 			//place piece and remove
 			if(!holding.isEmpty()) {
@@ -113,16 +133,77 @@ public class ChessBoardContainer extends Container {
 			return slot.getStack();
 
 		} else if (this.mode == Mode.PLAYING) {
-
-			return ItemStack.EMPTY;
-		} else
-			return ItemStack.EMPTY;
+			
+			if(!inslot.isEmpty() && this.selectedSlot == -1 &&  ((ChessPiece)inslot.getItem()).color == this.board.getCurrentColor()) {
+				this.selectedSlot = original;
+			
+			} else if(this.selectedSlot != -1) {
+				if(this.selectedSlot == original) {
+					this.selectedSlot = -1;
+					return ItemStack.EMPTY;
+				}
+				
+				ItemStack first = this.inventorySlots.get(whiteside ? selectedSlot : getX(selectedSlot) * 8 + 7 - getY(selectedSlot)).getStack();
+				
+				if(!first.isEmpty()) {
+					if(!inslot.isEmpty() && ((ChessPiece)inslot.getItem()).color == this.board.getCurrentColor()) {
+						this.selectedSlot = original;
+					}
+					else {
+						ChessHelper.executeMove(this, this.selectedSlot, original, () -> {
+							if(Minecraft.getInstance().currentScreen != null && Minecraft.getInstance().currentScreen instanceof ChessBoardScreen) {
+								((ChessBoardScreen)Minecraft.getInstance().currentScreen).updateSlotHighlights();
+							}
+								
+							if(this.board.isInCheck(this.board.toPlay)) {
+								int kingpos = this.board.getKingPos(this.board.toPlay);
+								this.checkedSquare = kingpos;
+							} else this.checkedSquare = -1;
+						});
+						this.selectedSlot = -1;
+						return ItemStack.EMPTY;
+					}
+				} else {
+					this.selectedSlot = -1;
+				}
+			}
+			
+			if(Minecraft.getInstance().currentScreen != null && Minecraft.getInstance().currentScreen instanceof ChessBoardScreen) {
+				((ChessBoardScreen)Minecraft.getInstance().currentScreen).updateSlotHighlights();
+			}
+		}
+		
+		return ItemStack.EMPTY;
 	}
 
 	public void clearBoard() {
 		for(int i = 0; i < 64; i++) {
 			((ChessBoardSquareSlot)this.inventorySlots.get(i)).clear(this);
+			((ChessBoardSquareSlot) this.inventorySlots.get(i)).highlight = Optional.empty();
 		}
+	}
+	
+	public void setMode(Mode mode) {
+
+		if(this.mode == Mode.PLAYING) {
+			this.selectedSlot = -1;
+		}
+		this.mode = mode;
+	}
+	
+	public Mode getMode() {
+		return this.mode;
+	}
+	
+	public PieceColor getSide() {
+		if(Minecraft.getInstance().currentScreen != null && Minecraft.getInstance().currentScreen instanceof ChessBoardScreen) {
+			return ((ChessBoardScreen)Minecraft.getInstance().currentScreen).getSide();
+		}
+		else return PieceColor.WHITE;
+	}
+	
+	public ChessBoard getBoard() {
+		return this.board;
 	}
 	
 	public void handleUpdatePacket(byte event) {
@@ -188,11 +269,16 @@ public class ChessBoardContainer extends Container {
 				this.inventorySlots.get(74).getStack().shrink(1);
 				this.inventorySlots.get(75).getStack().shrink(1);
 				
+				this.board.toPlay = PieceColor.WHITE;
+				this.board.canCastle = new boolean[] {true, true, true, true};
 				break;
 			}
 		}
-			
 		}
+	}
+	
+	public int getCheckedSquare() {
+		return this.checkedSquare;
 	}
 	
 	@Override
@@ -266,13 +352,13 @@ public class ChessBoardContainer extends Container {
     private void addSlots(PlayerInventory playerInventory, ChessBoardTile tile) {
 		for (int i = 0; i < 8; ++i) {
 			for (int j = 0; j < 8; ++j) {
-				this.addSlot(new ChessBoardSquareSlot(board, j + i * 8, 28 + i * 18, 30 + j * 18, () -> mode == Mode.PLAYING || mode == Mode.BOARD_EDITOR));
+				this.addSlot(new ChessBoardSquareSlot(this, j + i * 8, 22 + i * 18, 30 + j * 18, () -> mode == Mode.PLAYING || mode == Mode.BOARD_EDITOR));
 			}
 		}
 
 		for (int i = 0; i < 2; ++i) {
 			for (int j = 0; j < 6; ++j) {
-				this.addSlot(new ChessPieceStorageSlot(tile.getInventory(), j + i * 6, 70 + j * 20, 55 + i * 20, ChessPieceType.values()[j], PieceColor.values()[i], () -> mode == Mode.STORAGE));
+				this.addSlot(new ChessPieceStorageSlot(tile.getInventory(), j + i * 6, 20 + j * 20, 55 + i * 20, ChessPieceType.values()[j], PieceColor.values()[i], () -> mode == Mode.STORAGE));
 			}
 		}
 	      
@@ -288,7 +374,7 @@ public class ChessBoardContainer extends Container {
 		
 		for (int i = 0; i < 2; ++i) {
 			for (int j = 0; j < 6; ++j) {
-				this.addSlot(new ChessPieceStorageSlot(tile.getInventory(), i * 6 + j, 185 + i * 26, 66 + j * 18, ChessPieceType.values()[j], PieceColor.values()[i], () -> mode == Mode.BOARD_EDITOR));
+				this.addSlot(new ChessPieceStorageSlot(tile.getInventory(), i * 6 + j, 192 + i * 30, 66 + j * 18, ChessPieceType.values()[j], PieceColor.values()[i], () -> mode == Mode.BOARD_EDITOR));
 			}
 		}		
 	}

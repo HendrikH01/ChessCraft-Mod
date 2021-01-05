@@ -32,7 +32,7 @@ public class ClientSetChessBoardTabPacket {
 			public void run() {
 				PlayerEntity sender = context.getSender();
 				if(sender.openContainer instanceof ChessBoardContainer && sender.openContainer != null) {
-					((ChessBoardContainer)sender.openContainer).mode = Mode.values()[msg.tab];
+					((ChessBoardContainer)sender.openContainer).setMode(Mode.values()[msg.tab]);
 					PacketHandler.sendToNearby(sender.world, sender, new ServerSetChessBoardTabPacket(msg.tab));
 				}
 			}

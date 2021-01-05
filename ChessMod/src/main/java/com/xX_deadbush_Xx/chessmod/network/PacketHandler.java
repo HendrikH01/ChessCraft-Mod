@@ -27,10 +27,13 @@ public class PacketHandler {
 		//CLIENT TO SERVER
 		INSTANCE.registerMessage(id++, ClientSetChessBoardTabPacket.class, ClientSetChessBoardTabPacket::encode, ClientSetChessBoardTabPacket::decode, ClientSetChessBoardTabPacket::handle);
 		INSTANCE.registerMessage(id++, ClientChessBoardUpdatePacket.class, ClientChessBoardUpdatePacket::encode, ClientChessBoardUpdatePacket::decode, ClientChessBoardUpdatePacket::handle);
+		INSTANCE.registerMessage(id++, ClientSetCastlingOptionPacket.class, ClientSetCastlingOptionPacket::encode, ClientSetCastlingOptionPacket::decode, ClientSetCastlingOptionPacket::handle);
 
 		//SERVER TO CLIENT
 		INSTANCE.registerMessage(id++, ServerSetChessBoardTabPacket.class, ServerSetChessBoardTabPacket::encode, ServerSetChessBoardTabPacket::decode, ServerSetChessBoardTabPacket::handle);
 		INSTANCE.registerMessage(id++, ServerChessBoardUpdatePacket.class, ServerChessBoardUpdatePacket::encode, ServerChessBoardUpdatePacket::decode, ServerChessBoardUpdatePacket::handle);
+		INSTANCE.registerMessage(id++, ServerMovePiecePacket.class, ServerMovePiecePacket::encode, ServerMovePiecePacket::decode, ServerMovePiecePacket::handle);
+		INSTANCE.registerMessage(id++, ServerSetCastlingOptionPacket.class, ServerSetCastlingOptionPacket::encode, ServerSetCastlingOptionPacket::decode, ServerSetCastlingOptionPacket::handle);
 
 	}
 

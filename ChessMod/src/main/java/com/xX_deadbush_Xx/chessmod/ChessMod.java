@@ -1,12 +1,9 @@
 package com.xX_deadbush_Xx.chessmod;
 
-import java.io.File;
 import java.io.IOException;
-import java.nio.file.Path;
 
 import com.xX_deadbush_Xx.chessmod.client.ChessBoardRenderer;
 import com.xX_deadbush_Xx.chessmod.client.ChessBoardScreen;
-import com.xX_deadbush_Xx.chessmod.game_logic.ChessEngineManager;
 import com.xX_deadbush_Xx.chessmod.game_logic.PieceColor;
 import com.xX_deadbush_Xx.chessmod.network.PacketHandler;
 import com.xX_deadbush_Xx.chessmod.objects.ChessPiece;
@@ -47,9 +44,6 @@ public class ChessMod {
 		ModRegistry.CONTAINERS.register(bus);
 		ModRegistry.TILES.register(bus);
 		MinecraftForge.EVENT_BUS.register(this);
-		
-		File f = new File("../src/main/resources/assets/chessmod/stockfish/stockfish_10_x64_bmi2");
-		ChessEngineManager.getPossibleMoves(null, null);
 	}
 
 	private void commonsetup(final FMLCommonSetupEvent event) {
