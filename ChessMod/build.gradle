@@ -82,15 +82,9 @@ dependencies {
 
     minecraft 'net.minecraftforge:forge:1.15.2-31.1.0'
     
-    compile fg.deobf("com.github.Niflheim:Stockfish-Java:master-SNAPSHOT")
 }
 
-repositories {
-    maven { 
-      	url = 'https://jitpack.io' 
-   	}
-    mavenLocal()
-}
+
 
 jar {
     manifest {

@@ -3,15 +3,24 @@ package com.xX_deadbush_Xx.chessmod.game_logic;
 import static com.xX_deadbush_Xx.chessmod.game_logic.ChessHelper.*;
 
 import java.util.Optional;
+import java.util.UUID;
+
+import javax.annotation.Nullable;
 
 import com.mojang.datafixers.util.Pair;
 import com.xX_deadbush_Xx.chessmod.ChessMod;
 import com.xX_deadbush_Xx.chessmod.client.ChessBoardScreen;
 import com.xX_deadbush_Xx.chessmod.game_logic.inventory.ChessBoard;
 import com.xX_deadbush_Xx.chessmod.game_logic.inventory.ChessBoardSquareSlot;
-import com.xX_deadbush_Xx.chessmod.game_logic.inventory.ChessBoardSquareSlot.HighlightMode;
 import com.xX_deadbush_Xx.chessmod.game_logic.inventory.ChessPieceStorageSlot;
 import com.xX_deadbush_Xx.chessmod.game_logic.inventory.ToggleableSlotInventory;
+import com.xX_deadbush_Xx.chessmod.network.ClientEngineMakeMovePacket;
+import com.xX_deadbush_Xx.chessmod.network.PacketHandler;
+import com.xX_deadbush_Xx.chessmod.network.ServerChessBoardUpdatePacket;
+import com.xX_deadbush_Xx.chessmod.network.ServerChessDrawPacket;
+import com.xX_deadbush_Xx.chessmod.network.ServerChessDrawPacket.DrawReason;
+import com.xX_deadbush_Xx.chessmod.network.ServerPlayerDefeatedPacket;
+import com.xX_deadbush_Xx.chessmod.network.ServerPlayerDefeatedPacket.LoseReason;
 import com.xX_deadbush_Xx.chessmod.objects.ChessBoardTile;
 import com.xX_deadbush_Xx.chessmod.objects.ChessPiece;
 import com.xX_deadbush_Xx.chessmod.objects.ModRegistry;
@@ -25,15 +34,14 @@ import net.minecraft.inventory.container.Slot;
 import net.minecraft.item.ItemStack;
 import net.minecraft.network.PacketBuffer;
 import net.minecraft.util.ResourceLocation;
-import net.minecraftforge.api.distmarker.Dist;
-import net.minecraftforge.api.distmarker.OnlyIn;
 
 public class ChessBoardContainer extends Container {
 
+	public final ChessBoardTile tile;
 	private ChessBoard board;
 	public int selectedSlot = -1;
 	private Mode mode = Mode.PLAYING;
-	private int checkedSquare = -1;
+	public int checkedSquare = -1;
 	
     public ChessBoardContainer(final int windowId, final PlayerInventory playerInventory, PacketBuffer buffer) {
 		this(windowId, playerInventory, (ChessBoardTile)Util.getTileEntity(ChessBoardTile.class, playerInventory, buffer));
@@ -42,6 +50,7 @@ public class ChessBoardContainer extends Container {
     public ChessBoardContainer(final int windowId, final PlayerInventory playerInventory, ChessBoardTile tile) {
 		super(ModRegistry.CHESS_BOARD_CONTAINER.get(), windowId);
 		
+		this.tile = tile;
 		this.board = tile.getBoard();
 		
 		addSlots(playerInventory, tile);
@@ -59,16 +68,10 @@ public class ChessBoardContainer extends Container {
 				ItemStack holding = player.inventory.getItemStack();
 				
 				//if stacks equal remove from hand
-				if(slotstack.getItem() == holding.getItem() && ItemStack.areItemStackTagsEqual(slotstack, holding)) {
-					ItemStack storage = this.inventorySlots.get(Util.getStorageSlotIndex(holding)).getStack();
-					if(storage.getCount() == storage.getMaxStackSize()) {
-						//if storage slot was filled while player was holding item do nothing 
-						return slotstack;
-					} else {
-						storage.grow(1);
-						player.inventory.setItemStack(ItemStack.EMPTY);
-					}
-						return slotstack;
+				if(slotstack.getItem() == holding.getItem() && ItemStack.areItemStackTagsEqual(slotstack, holding) && !holding.isEmpty()) {
+					ChessHelper.putPieceBack(this, holding);
+					player.inventory.setItemStack(ItemStack.EMPTY);
+					return slotstack;
 				}
 				if(!slotstack.isEmpty()) {
 					//try take stack out or swap
@@ -100,9 +103,9 @@ public class ChessBoardContainer extends Container {
 		return super.slotClick(slotId, dragType, clickTypeIn, player);
 	}
 	
+	@SuppressWarnings("resource")
 	private ItemStack handleBoardClick(int slotid, int dragType, PlayerEntity player) {
-		//this.side == PieceColor.WHITE ? slotid : getX(slotid)*8 + (7 - getY(slotid))
-		boolean whiteside = getSide() == PieceColor.WHITE;
+		boolean whiteside = getSide(player) == PieceColor.WHITE;
 
 		int original = whiteside ? slotid : getX(slotid) * 8 + 7 - getY(slotid);
 		ChessBoardSquareSlot slot = (ChessBoardSquareSlot)this.inventorySlots.get(original);
@@ -125,16 +128,25 @@ public class ChessBoardContainer extends Container {
 			//clear slot
 			} else if(!inslot.isEmpty()) {
 				slot.clear(this);
-				return ItemStack.EMPTY;
 				
 			//if both empty do nothing
 			} else return ItemStack.EMPTY;
+			
+			this.boardChanged();
 			
 			return slot.getStack();
 
 		} else if (this.mode == Mode.PLAYING) {
 			
-			if(!inslot.isEmpty() && this.selectedSlot == -1 &&  ((ChessPiece)inslot.getItem()).color == this.board.getCurrentColor()) {
+			//if playing and not your turn you cant modify the board
+			if(this.tile.playing) {
+				boolean ischallenger = this.tile.challenger.isPresent() && this.tile.challenger.get().equals(player.getUniqueID());
+				if(!(ischallenger && this.tile.challengerColor == this.board.toPlay || !ischallenger && this.tile.challengerColor != this.board.toPlay)) {
+					return ItemStack.EMPTY;
+				}			
+			}
+			
+			if(!inslot.isEmpty() && this.selectedSlot == -1 && ((ChessPiece)inslot.getItem()).color == this.board.toPlay) {
 				this.selectedSlot = original;
 			
 			} else if(this.selectedSlot != -1) {
@@ -143,7 +155,7 @@ public class ChessBoardContainer extends Container {
 					return ItemStack.EMPTY;
 				}
 				
-				ItemStack first = this.inventorySlots.get(whiteside ? selectedSlot : getX(selectedSlot) * 8 + 7 - getY(selectedSlot)).getStack();
+				ItemStack first = this.inventorySlots.get(selectedSlot).getStack();
 				
 				if(!first.isEmpty()) {
 					if(!inslot.isEmpty() && ((ChessPiece)inslot.getItem()).color == this.board.getCurrentColor()) {
@@ -151,14 +163,21 @@ public class ChessBoardContainer extends Container {
 					}
 					else {
 						ChessHelper.executeMove(this, this.selectedSlot, original, () -> {
-							if(Minecraft.getInstance().currentScreen != null && Minecraft.getInstance().currentScreen instanceof ChessBoardScreen) {
-								((ChessBoardScreen)Minecraft.getInstance().currentScreen).updateSlotHighlights();
-							}
+							this.board.toPlay = this.board.toPlay.getOpposite();
+							this.checkForMate(this.board.toPlay);
+
+							if(this.tile.getWorld().isRemote) {
+								if(Minecraft.getInstance().currentScreen != null && Minecraft.getInstance().currentScreen instanceof ChessBoardScreen) {
+									((ChessBoardScreen)Minecraft.getInstance().currentScreen).updateSlotHighlights();
+								}
 								
-							if(this.board.isInCheck(this.board.toPlay)) {
-								int kingpos = this.board.getKingPos(this.board.toPlay);
-								this.checkedSquare = kingpos;
-							} else this.checkedSquare = -1;
+								if(this.tile.isPlayingComputer && this.tile.playing && !this.tile.waitingForPromotion) {
+									makeComputerMove();
+								}
+							} else {
+								PacketHandler.sendToNearby(this.tile.getWorld(), this.tile.getPos(), new ServerChessBoardUpdatePacket(null, (byte)(6 + this.board.toPlay.ordinal())));
+							}
+
 						});
 						this.selectedSlot = -1;
 						return ItemStack.EMPTY;
@@ -168,12 +187,25 @@ public class ChessBoardContainer extends Container {
 				}
 			}
 			
-			if(Minecraft.getInstance().currentScreen != null && Minecraft.getInstance().currentScreen instanceof ChessBoardScreen) {
-				((ChessBoardScreen)Minecraft.getInstance().currentScreen).updateSlotHighlights();
+			if(this.tile.getWorld().isRemote) {
+				if(Minecraft.getInstance().currentScreen != null && Minecraft.getInstance().currentScreen instanceof ChessBoardScreen) {
+					((ChessBoardScreen)Minecraft.getInstance().currentScreen).updateSlotHighlights();
+				}
 			}
 		}
 		
 		return ItemStack.EMPTY;
+	}
+	
+	@SuppressWarnings("resource")
+	private void boardChanged() {
+		if(this.tile.getWorld().isRemote) {
+			if(Minecraft.getInstance().currentScreen != null && Minecraft.getInstance().currentScreen instanceof ChessBoardScreen) {
+				ChessBoardScreen screen = (ChessBoardScreen)Minecraft.getInstance().currentScreen;
+
+				screen.updateSlotHighlights();
+			}
+		}
 	}
 
 	public void clearBoard() {
@@ -184,10 +216,19 @@ public class ChessBoardContainer extends Container {
 	}
 	
 	public void setMode(Mode mode) {
-
+		if(this.tile.playing) {
+			this.mode = Mode.PLAYING;
+			return;
+		}
+		
 		if(this.mode == Mode.PLAYING) {
 			this.selectedSlot = -1;
 		}
+		
+		if(mode == Mode.PLAYING && !this.tile.getWorld().isRemote) {
+			this.boardChanged();
+		}
+		
 		this.mode = mode;
 	}
 	
@@ -195,18 +236,108 @@ public class ChessBoardContainer extends Container {
 		return this.mode;
 	}
 	
-	public PieceColor getSide() {
-		if(Minecraft.getInstance().currentScreen != null && Minecraft.getInstance().currentScreen instanceof ChessBoardScreen) {
-			return ((ChessBoardScreen)Minecraft.getInstance().currentScreen).getSide();
+	@SuppressWarnings("resource")
+	public PieceColor getSide(PlayerEntity player) {
+		if(player.world.isRemote) {
+			if(Minecraft.getInstance().currentScreen != null && Minecraft.getInstance().currentScreen instanceof ChessBoardScreen) {
+				return ((ChessBoardScreen)Minecraft.getInstance().currentScreen).getSide();
+			}
 		}
-		else return PieceColor.WHITE;
+		
+		if(this.tile.sides.containsKey(player.getUniqueID())) {
+			if(player.openContainer.equals(this))
+				return this.tile.sides.getOrDefault(player.getUniqueID(), PieceColor.WHITE);
+			else this.tile.sides.remove(player.getUniqueID());
+		}
+		return PieceColor.WHITE;
 	}
 	
 	public ChessBoard getBoard() {
 		return this.board;
 	}
 	
-	public void handleUpdatePacket(byte event) {
+	@SuppressWarnings("resource")
+	public void tryPromotePawn(ChessPieceType type, PieceColor color) {
+		if(type == ChessPieceType.PAWN || type == ChessPieceType.KING) return;
+		
+		Slot storage = this.inventorySlots.get(64 + type.ordinal() + color.ordinal() * 6);
+		if(storage.getHasStack()) {
+			ItemStack piece = storage.getStack().copy();
+			storage.getStack().shrink(1);
+			
+			for(int x = 0; x < 8; x++) {
+				int y = color == PieceColor.WHITE ? 0 : 7;
+				if(!this.getBoard().getPieceAt(x, y).isEmpty()) {
+					if(((ChessPiece)this.getBoard().getPieceAt(x, y).getItem()).type == ChessPieceType.PAWN) {
+						this.getBoard().removePieceAt(this, x, y);
+						this.getBoard().placePieceAt(x, y, piece);
+						
+						this.tile.waitingForPromotion = false;
+						
+						break;
+					}
+				}
+			}
+			
+			//COMPUTER MOVE
+			if(this.tile.getWorld().isRemote && this.tile.isPlayingComputer && !this.tile.waitingForPromotion) {
+				makeComputerMove();
+			}
+		}
+	}
+	
+ 	public void makeComputerMove() {
+		String fen = this.board.getFEN(this.tile.challengerColor.getOpposite());
+		ChessEngineManager.getNextMove(fen, this.tile.computerStrength, result -> {
+			
+			if(result.equals("(none)")) return;
+			
+			try {
+ 				ChessHelper.getLegalMoves(this, this.tile.challengerColor.getOpposite(), moves -> {
+ 					int f = ChessHelper.convertNumberFormat(result.substring(0, 2));
+					int s = ChessHelper.convertNumberFormat(result.substring(2, 4));
+					String p = "";
+					if(result.length() == 5) {
+						p = result.substring(4, 5);
+					}
+					
+					if(moves.contains(Pair.of(f, s)))
+						PacketHandler.sendToServer(this.tile.getWorld(), new ClientEngineMakeMovePacket(f, s, p));
+				});
+			} catch(Exception e) {
+				e.printStackTrace();
+			}
+		});
+ 	}
+ 	
+	@SuppressWarnings("resource")
+	public void checkForMate(PieceColor mated) {
+		if(this.board.isInCheck(mated)) {
+			this.checkedSquare = this.board.getKingPos(mated);
+			
+			if(this.tile.getWorld().isRemote) return;
+			
+			//checkmate check!
+			ChessEngineManager.getLegalMoves(this.board.getFEN(mated), (result) -> {
+				if(result.isEmpty()) {
+					//mate
+					PacketHandler.sendToNearby(this.tile.getWorld(), this.tile.getPos(), new ServerPlayerDefeatedPacket(mated == this.tile.challengerColor, LoseReason.CHECKMATE));
+				}
+			});
+		} else {
+			this.checkedSquare = -1;
+			
+			ChessEngineManager.getLegalMoves(this.board.getFEN(mated), (result) -> {
+				if(result.isEmpty() && !this.tile.getWorld().isRemote) {
+					//stalemate
+					PacketHandler.sendToNearby(this.tile.getWorld(), this.tile.getPos(), new ServerChessDrawPacket(DrawReason.STALEMATE));
+				}
+			});
+		}
+	}
+	
+	@SuppressWarnings("resource")
+	public void handleUpdatePacket(@Nullable UUID sender, byte event) {
 		switch(event) {
 		case 0: {
 			//CLEAR BOARD
@@ -216,69 +347,127 @@ public class ChessBoardContainer extends Container {
 		
 		case 1: {
 			//BUILD BOARD hardcoded yay
-			
 			if(this.inventorySlots.get(64).getStack().getCount() >= 8 &&
-			   this.inventorySlots.get(65).getStack().getCount() >= 2 &&
-			   this.inventorySlots.get(66).getStack().getCount() >= 2 &&
-			   this.inventorySlots.get(67).getStack().getCount() >= 2 &&
-			   this.inventorySlots.get(68).getStack().getCount() >= 1 &&
-			   this.inventorySlots.get(69).getStack().getCount() >= 1 &&
-			   this.inventorySlots.get(70).getStack().getCount() >= 8 &&
-			   this.inventorySlots.get(71).getStack().getCount() >= 2 &&
-			   this.inventorySlots.get(72).getStack().getCount() >= 2 &&
-			   this.inventorySlots.get(73).getStack().getCount() >= 2 &&
-			   this.inventorySlots.get(74).getStack().getCount() >= 1 &&
-			   this.inventorySlots.get(75).getStack().getCount() >= 1) {
-						   
-				for(int i = 0; i < 8; i++) {
-					this.board.placePieceAt(i, 6, this.inventorySlots.get(64).getStack().copy());
-					this.board.placePieceAt(i, 1, this.inventorySlots.get(70).getStack().copy());
+				   this.inventorySlots.get(65).getStack().getCount() >= 2 &&
+				   this.inventorySlots.get(66).getStack().getCount() >= 2 &&
+				   this.inventorySlots.get(67).getStack().getCount() >= 2 &&
+				   this.inventorySlots.get(68).getStack().getCount() >= 1 &&
+				   this.inventorySlots.get(69).getStack().getCount() >= 1 &&
+				   this.inventorySlots.get(70).getStack().getCount() >= 8 &&
+				   this.inventorySlots.get(71).getStack().getCount() >= 2 &&
+				   this.inventorySlots.get(72).getStack().getCount() >= 2 &&
+				   this.inventorySlots.get(73).getStack().getCount() >= 2 &&
+				   this.inventorySlots.get(74).getStack().getCount() >= 1 &&
+				   this.inventorySlots.get(75).getStack().getCount() >= 1) {
+						
+					buildBoard();
 				}
-				
-				this.board.placePieceAt(7, 7, this.inventorySlots.get(67).getStack().copy());
-				this.board.placePieceAt(0, 7, this.inventorySlots.get(67).getStack().copy());
-				this.board.placePieceAt(7, 0, this.inventorySlots.get(73).getStack().copy());
-				this.board.placePieceAt(0, 0, this.inventorySlots.get(73).getStack().copy());
-				
-				this.board.placePieceAt(1, 7, this.inventorySlots.get(65).getStack().copy());
-				this.board.placePieceAt(6, 7, this.inventorySlots.get(65).getStack().copy());
-				this.board.placePieceAt(1, 0, this.inventorySlots.get(71).getStack().copy());
-				this.board.placePieceAt(6, 0, this.inventorySlots.get(71).getStack().copy());
-				
-				this.board.placePieceAt(2, 7, this.inventorySlots.get(66).getStack().copy());
-				this.board.placePieceAt(5, 7, this.inventorySlots.get(66).getStack().copy());
-				this.board.placePieceAt(2, 0, this.inventorySlots.get(72).getStack().copy());
-				this.board.placePieceAt(5, 0, this.inventorySlots.get(72).getStack().copy());
-				
-				this.board.placePieceAt(3, 7, this.inventorySlots.get(68).getStack().copy());
-				this.board.placePieceAt(4, 7, this.inventorySlots.get(69).getStack().copy());
-				
-				this.board.placePieceAt(3, 0, this.inventorySlots.get(74).getStack().copy());
-				this.board.placePieceAt(4, 0, this.inventorySlots.get(75).getStack().copy());
-				
-				this.inventorySlots.get(64).getStack().shrink(8);
-				this.inventorySlots.get(65).getStack().shrink(2);
-				this.inventorySlots.get(66).getStack().shrink(2);
-				this.inventorySlots.get(67).getStack().shrink(2);
-				this.inventorySlots.get(68).getStack().shrink(1);
-				this.inventorySlots.get(69).getStack().shrink(1);
-				this.inventorySlots.get(70).getStack().shrink(8);
-				this.inventorySlots.get(71).getStack().shrink(2);
-				this.inventorySlots.get(72).getStack().shrink(2);
-				this.inventorySlots.get(73).getStack().shrink(2);
-				this.inventorySlots.get(74).getStack().shrink(1);
-				this.inventorySlots.get(75).getStack().shrink(1);
-				
-				this.board.toPlay = PieceColor.WHITE;
-				this.board.canCastle = new boolean[] {true, true, true, true};
-				break;
+			break;
+		}
+		case 2: {
+			//draw
+			if(this.tile.playing) {
+				this.tile.playing = false;
+
+				System.out.println("Draw accepted!");
 			}
+			break;
+		}
+		case 3: {
+			//resign
+			//only on server
+			if(this.tile.getWorld().isRemote || !this.tile.challenger.isPresent() || !this.tile.isPlayingComputer && !this.tile.challenged.isPresent()) 
+				return;
+			
+			this.tile.sendDefeated(LoseReason.RESIGN, sender);
+			PacketHandler.sendToNearby(this.tile.getWorld(), this.tile.getPos(), new ServerChessBoardUpdatePacket(sender, (byte)8));
+			break;
+		}
+		case 4: { 
+			this.tile.challengerColor = PieceColor.WHITE;
+			break;
+		}
+		case 5: {
+			this.tile.challengerColor = PieceColor.BLACK;
+			break;
+		}
+		case 6: {
+			this.board.toPlay = PieceColor.WHITE;
+			break;
+		}
+		case 7: {
+			this.board.toPlay = PieceColor.BLACK;
+			break;
+		}
+		case 8: {
+			//stahp
+			this.tile.playing = false;
+			this.tile.challenged = Optional.empty();
+			this.tile.challenger = Optional.empty();
+			break;
+		}
+		case 9: {
+			//cancel challenge
+			this.tile.waitingForChallenged = false;
+			this.tile.challenger = Optional.empty();
+			this.tile.playing = false;
+			break;
+		}
+		case 10: {
+			//challenge accepted
+			this.tile.waitingForChallenged = false;
+			this.tile.isPlayingComputer = false;
+			this.tile.playing = true;
+			this.tile.challenged = Optional.of(sender);
+			break;
 		}
 		}
 	}
-	
-	public int getCheckedSquare() {
-		return this.checkedSquare;
+
+	public void buildBoard() {
+		clearBoard();
+		
+		for(int i = 0; i < 8; i++) {
+			this.board.placePieceAt(i, 6, this.inventorySlots.get(64).getStack().copy());
+			this.board.placePieceAt(i, 1, this.inventorySlots.get(70).getStack().copy());
+		}
+		
+		this.board.placePieceAt(7, 7, this.inventorySlots.get(67).getStack().copy());
+		this.board.placePieceAt(0, 7, this.inventorySlots.get(67).getStack().copy());
+		this.board.placePieceAt(7, 0, this.inventorySlots.get(73).getStack().copy());
+		this.board.placePieceAt(0, 0, this.inventorySlots.get(73).getStack().copy());
+		
+		this.board.placePieceAt(1, 7, this.inventorySlots.get(65).getStack().copy());
+		this.board.placePieceAt(6, 7, this.inventorySlots.get(65).getStack().copy());
+		this.board.placePieceAt(1, 0, this.inventorySlots.get(71).getStack().copy());
+		this.board.placePieceAt(6, 0, this.inventorySlots.get(71).getStack().copy());
+		
+		this.board.placePieceAt(2, 7, this.inventorySlots.get(66).getStack().copy());
+		this.board.placePieceAt(5, 7, this.inventorySlots.get(66).getStack().copy());
+		this.board.placePieceAt(2, 0, this.inventorySlots.get(72).getStack().copy());
+		this.board.placePieceAt(5, 0, this.inventorySlots.get(72).getStack().copy());
+		
+		this.board.placePieceAt(3, 7, this.inventorySlots.get(68).getStack().copy());
+		this.board.placePieceAt(4, 7, this.inventorySlots.get(69).getStack().copy());
+		
+		this.board.placePieceAt(3, 0, this.inventorySlots.get(74).getStack().copy());
+		this.board.placePieceAt(4, 0, this.inventorySlots.get(75).getStack().copy());
+		
+		this.inventorySlots.get(64).getStack().shrink(8);
+		this.inventorySlots.get(65).getStack().shrink(2);
+		this.inventorySlots.get(66).getStack().shrink(2);
+		this.inventorySlots.get(67).getStack().shrink(2);
+		this.inventorySlots.get(68).getStack().shrink(1);
+		this.inventorySlots.get(69).getStack().shrink(1);
+		this.inventorySlots.get(70).getStack().shrink(8);
+		this.inventorySlots.get(71).getStack().shrink(2);
+		this.inventorySlots.get(72).getStack().shrink(2);
+		this.inventorySlots.get(73).getStack().shrink(2);
+		this.inventorySlots.get(74).getStack().shrink(1);
+		this.inventorySlots.get(75).getStack().shrink(1);
+		
+		this.board.toPlay = PieceColor.WHITE;
+		this.board.canCastle = new boolean[] {true, true, true, true};
 	}
 	
 	@Override
@@ -286,23 +475,25 @@ public class ChessBoardContainer extends Container {
     	if(index < 64 || index >= 112) {
     		return ItemStack.EMPTY;
     	} else if(index < 76) {
-    	      ItemStack newstack = ItemStack.EMPTY;
+    	      ItemStack itemstack = ItemStack.EMPTY;
     	      Slot slot = this.inventorySlots.get(index);
-				if (slot != null && slot.getHasStack()) {
-					ItemStack stackinslot = slot.getStack();
-					newstack = stackinslot.copy();
-					if (!this.mergeItemStack(stackinslot, 76, this.inventorySlots.size(), true)) {
-						return ItemStack.EMPTY;
-					}
+    	      
+    	      if (slot != null && slot.getHasStack()) {
+    	         ItemStack itemstack1 = slot.getStack();
+    	         itemstack = itemstack1.copy();
+    	         
+    	         if (!this.mergeItemStack(itemstack1, 76, 112, true)) {
+    	              return ItemStack.EMPTY;
+    	         }
 
-					if (stackinslot.isEmpty()) {
-						slot.putStack(ItemStack.EMPTY);
-					} else {
-						slot.onSlotChanged();
-					}
+    	         if (itemstack1.isEmpty()) {
+    	            slot.putStack(ItemStack.EMPTY);
+    	         } else {
+    	            slot.onSlotChanged();
+    	         }
     	      }
 
-    	      return newstack;
+    	      return itemstack;
     	      
     	} else {
 			ItemStack newstack = ItemStack.EMPTY;
@@ -352,7 +543,7 @@ public class ChessBoardContainer extends Container {
     private void addSlots(PlayerInventory playerInventory, ChessBoardTile tile) {
 		for (int i = 0; i < 8; ++i) {
 			for (int j = 0; j < 8; ++j) {
-				this.addSlot(new ChessBoardSquareSlot(this, j + i * 8, 22 + i * 18, 30 + j * 18, () -> mode == Mode.PLAYING || mode == Mode.BOARD_EDITOR));
+				this.addSlot(new ChessBoardSquareSlot(this, j + i * 8, 22 + i * 18, 30 + j * 18, () -> mode == Mode.PLAYING && !this.tile.waitingForPromotion || mode == Mode.BOARD_EDITOR));
 			}
 		}
 

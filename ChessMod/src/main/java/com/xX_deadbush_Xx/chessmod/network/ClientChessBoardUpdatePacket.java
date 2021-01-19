@@ -31,8 +31,10 @@ public class ClientChessBoardUpdatePacket {
 			public void run() {
 				PlayerEntity sender = context.getSender();
 				if(sender.openContainer instanceof ChessBoardContainer && sender.openContainer != null) {
-					((ChessBoardContainer) sender.openContainer).handleUpdatePacket(msg.event);
-					PacketHandler.sendToNearby(sender.world, sender, new ServerChessBoardUpdatePacket(msg.event));
+					((ChessBoardContainer) sender.openContainer).handleUpdatePacket(sender.getUniqueID(), msg.event);
+					
+					if(msg.event != 3) //ServerPlayerDefeatedPackets will be sent instead
+						PacketHandler.sendToNearby(sender.world, sender, new ServerChessBoardUpdatePacket(sender.getUniqueID(), msg.event));
 				}
 			}
 		});

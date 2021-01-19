@@ -4,6 +4,7 @@ import java.io.IOException;
 
 import com.xX_deadbush_Xx.chessmod.client.ChessBoardRenderer;
 import com.xX_deadbush_Xx.chessmod.client.ChessBoardScreen;
+import com.xX_deadbush_Xx.chessmod.game_logic.ChessEngineManager;
 import com.xX_deadbush_Xx.chessmod.game_logic.PieceColor;
 import com.xX_deadbush_Xx.chessmod.network.PacketHandler;
 import com.xX_deadbush_Xx.chessmod.objects.ChessPiece;
@@ -15,9 +16,11 @@ import net.minecraft.item.ItemGroup;
 import net.minecraft.item.ItemStack;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.eventbus.api.IEventBus;
+import net.minecraftforge.fml.ModLoadingContext;
 import net.minecraftforge.fml.client.registry.ClientRegistry;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.common.Mod.EventBusSubscriber.Bus;
+import net.minecraftforge.fml.config.ModConfig;
 import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
 import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
@@ -39,6 +42,9 @@ public class ChessMod {
 		bus.addListener(this::commonsetup);
 		bus.addListener(this::clientsetup);
 
+		//ModLoadingContext.get().registerConfig(ModConfig.Type.CLIENT, Config.CLIENT_SPEC);
+		//ModLoadingContext.get().registerConfig(ModConfig.Type.COMMON, Config.COMMON_SPEC);
+		
 		ModRegistry.ITEMS.register(bus);
 		ModRegistry.BLOCKS.register(bus);
 		ModRegistry.CONTAINERS.register(bus);
@@ -48,6 +54,7 @@ public class ChessMod {
 
 	private void commonsetup(final FMLCommonSetupEvent event) {
 		PacketHandler.registerPackets();
+		ChessEngineManager.init();
 	}
 
 	private void clientsetup(final FMLClientSetupEvent event) {

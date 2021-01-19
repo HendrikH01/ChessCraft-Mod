@@ -1,46 +1,89 @@
 package com.xX_deadbush_Xx.chessmod.client;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.function.Function;
 
 import org.lwjgl.opengl.GL11;
 
+import com.google.common.collect.ImmutableList;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.datafixers.util.Pair;
 import com.xX_deadbush_Xx.chessmod.ChessMod;
+import com.xX_deadbush_Xx.chessmod.Config;
+import com.xX_deadbush_Xx.chessmod.client.widgets.BuildBoardButton;
+import com.xX_deadbush_Xx.chessmod.client.widgets.CastleOptionButton;
+import com.xX_deadbush_Xx.chessmod.client.widgets.ChallengeDisplay;
+import com.xX_deadbush_Xx.chessmod.client.widgets.ChallengerColorButton;
+import com.xX_deadbush_Xx.chessmod.client.widgets.ChessBoardGuiSwitch;
+import com.xX_deadbush_Xx.chessmod.client.widgets.ClearBoardButton;
+import com.xX_deadbush_Xx.chessmod.client.widgets.ComputerStrengthSlider;
+import com.xX_deadbush_Xx.chessmod.client.widgets.ErrorMessageDisplay;
+import com.xX_deadbush_Xx.chessmod.client.widgets.FlipBoardButton;
+import com.xX_deadbush_Xx.chessmod.client.widgets.GameEndMessageDisplay;
+import com.xX_deadbush_Xx.chessmod.client.widgets.HintButton;
+import com.xX_deadbush_Xx.chessmod.client.widgets.OfferDrawButton;
+import com.xX_deadbush_Xx.chessmod.client.widgets.PlayButton;
+import com.xX_deadbush_Xx.chessmod.client.widgets.PlayComputerButton;
+import com.xX_deadbush_Xx.chessmod.client.widgets.PlayingColorButton;
+import com.xX_deadbush_Xx.chessmod.client.widgets.PromotionButton;
+import com.xX_deadbush_Xx.chessmod.client.widgets.ResignButton;
+import com.xX_deadbush_Xx.chessmod.client.widgets.TimeDisplayWidget;
+import com.xX_deadbush_Xx.chessmod.client.widgets.TimeLimitSlider;
+import com.xX_deadbush_Xx.chessmod.client.widgets.ToggleOptionButton;
 import com.xX_deadbush_Xx.chessmod.game_logic.ChessBoardContainer;
 import com.xX_deadbush_Xx.chessmod.game_logic.ChessBoardContainer.Mode;
 import com.xX_deadbush_Xx.chessmod.game_logic.ChessHelper;
+import com.xX_deadbush_Xx.chessmod.game_logic.ChessPieceType;
 import com.xX_deadbush_Xx.chessmod.game_logic.PieceColor;
 import com.xX_deadbush_Xx.chessmod.game_logic.inventory.ChessBoardSquareSlot;
 import com.xX_deadbush_Xx.chessmod.game_logic.inventory.ChessBoardSquareSlot.HighlightMode;
 import com.xX_deadbush_Xx.chessmod.game_logic.inventory.ChessPieceStorageSlot;
-import com.xX_deadbush_Xx.chessmod.network.ClientChessBoardUpdatePacket;
+import com.xX_deadbush_Xx.chessmod.network.ClientSetSidePacket;
 import com.xX_deadbush_Xx.chessmod.network.PacketHandler;
 import com.xX_deadbush_Xx.chessmod.objects.ChessPiece;
 
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.FontRenderer;
 import net.minecraft.client.gui.screen.inventory.ContainerScreen;
-import net.minecraft.client.gui.widget.button.Button;
+import net.minecraft.client.gui.widget.Widget;
 import net.minecraft.entity.player.PlayerInventory;
 import net.minecraft.inventory.container.Slot;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.Util;
 import net.minecraft.util.text.ITextComponent;
-import net.minecraftforge.api.distmarker.Dist;
-import net.minecraftforge.api.distmarker.OnlyIn;
 
 public class ChessBoardScreen extends ContainerScreen<ChessBoardContainer> {
 	public static final ResourceLocation TEX_ICONS = new ResourceLocation(ChessMod.MOD_ID, "textures/gui/icons.png");
 	public static final ResourceLocation TEX_INV = new ResourceLocation(ChessMod.MOD_ID, "textures/gui/inventory.png");
 	public static final ResourceLocation TEX_PIECES = new ResourceLocation(ChessMod.MOD_ID, "textures/gui/pieces_atlas.png");
+	private static final Map<Class<? extends Widget>, Function<Widget, List<String>>> buttonTooltips = new HashMap<>();
+	
 	private CastleOptionButton[] castlebuttons;
+	private PromotionButton[] promtionbuttons;
+	private ToggleOptionButton[] options;
 	private ClearBoardButton clearButton;
 	private BuildBoardButton buildButton;
 	private FlipBoardButton flipbutton;
 	private PieceColor side = PieceColor.WHITE;
+	private TimeDisplayWidget timeDisplaySelf;
+	private TimeDisplayWidget timeDisplayOpponent;
+	private PlayButton playButton;
+	private ResignButton resignButton;
+	private OfferDrawButton drawButton;
+	public TimeLimitSlider timeSlider;
+	private ComputerStrengthSlider computerStrengthSlider;
+	private HintButton hintButton;
+	private PlayComputerButton playComputerButton;
+	private PlayingColorButton playingColorButton;
+	public GameEndMessageDisplay gameEndDisplay;
+	private ErrorMessageDisplay errorMessageDisplay;
+	private ChallengerColorButton challengerColorButton;
+	public ChallengeDisplay challengeDisplay;
 	
 	public ChessBoardScreen(ChessBoardContainer screenContainer, PlayerInventory inv, ITextComponent titleIn) {
 		super(screenContainer, inv, titleIn);
@@ -53,43 +96,103 @@ public class ChessBoardScreen extends ContainerScreen<ChessBoardContainer> {
 	@SuppressWarnings("resource")
 	@Override
 	protected void init() {
-		this.addButton(new ChessBoardGuiSwitch(this.guiLeft, this.guiTop, 0));
-		this.addButton(new ChessBoardGuiSwitch(this.guiLeft + 64, this.guiTop, 1));
-		this.addButton(new ChessBoardGuiSwitch(this.guiLeft + 128, this.guiTop, 2));
-		this.addButton(new ChessBoardGuiSwitch(this.guiLeft + 192, this.guiTop, 3));
+		this.addButton(new ChessBoardGuiSwitch(this.container, this.guiLeft, this.guiTop, 0));
+		this.addButton(new ChessBoardGuiSwitch(this.container, this.guiLeft + 64, this.guiTop, 1));
+		this.addButton(new ChessBoardGuiSwitch(this.container, this.guiLeft + 128, this.guiTop, 2));
+		this.addButton(new ChessBoardGuiSwitch(this.container, this.guiLeft + 192, this.guiTop, 3));
 
 		this.castlebuttons = new CastleOptionButton[] {		
-
 			this.addButton(new CastleOptionButton(this.container, this.guiLeft + 201, this.guiTop + 29, 0)),
 			this.addButton(new CastleOptionButton(this.container, this.guiLeft + 211, this.guiTop + 29, 1)),
 			this.addButton(new CastleOptionButton(this.container, this.guiLeft + 201, this.guiTop + 39, 2)),
 			this.addButton(new CastleOptionButton(this.container, this.guiLeft + 211, this.guiTop + 39, 3)),
 		};
 		
-		this.clearButton = this.addButton(new ClearBoardButton(this.guiLeft + 181, this.guiTop + 29, (button) -> {	
-			PacketHandler.sendToServer(Minecraft.getInstance().world, new ClientChessBoardUpdatePacket((byte) 0));
+		this.promtionbuttons = new PromotionButton[] {		
+			this.addButton(new PromotionButton(this.container, this.guiLeft + 53, this.guiTop + 91, ChessPieceType.BISHOP)),
+			this.addButton(new PromotionButton(this.container, this.guiLeft + 73, this.guiTop + 91, ChessPieceType.HORSEY)),
+			this.addButton(new PromotionButton(this.container, this.guiLeft + 93, this.guiTop + 91, ChessPieceType.ROOK)),
+			this.addButton(new PromotionButton(this.container, this.guiLeft + 113, this.guiTop + 91, ChessPieceType.QUEEN)),
+		};
+		
+		this.options = new ToggleOptionButton[] {
+				this.addButton(new ToggleOptionButton(this.guiLeft + 30, this.guiTop + 102, "Coordinates", (b) -> {
+					//coordinates
+					((ToggleOptionButton)b).yes = !((ToggleOptionButton)b).yes;
+				})),
+				this.addButton(new ToggleOptionButton(this.guiLeft + 138, this.guiTop + 102, "Highlights", (b) -> {
+					//highlights
+					((ToggleOptionButton)b).yes = !((ToggleOptionButton)b).yes;
+					this.updateSlotHighlights();
+				})),
+			};
+		
+		this.timeDisplaySelf = addButton(new TimeDisplayWidget(this.container, false, this.guiLeft + 180, this.guiTop + 29));
+		this.timeDisplayOpponent = addButton(new TimeDisplayWidget(this.container, true, this.guiLeft + 180, this.guiTop + 149));
+		this.clearButton = this.addButton(new ClearBoardButton(this.guiLeft + 181, this.guiTop + 29));
+		this.playingColorButton = this.addButton(new PlayingColorButton(this.container, this.guiLeft + 221, this.guiTop + 29));
+		this.challengerColorButton = this.addButton(new ChallengerColorButton(this.container, this.guiLeft + 221, this.guiTop + 46));
+		this.buildButton = this.addButton(new BuildBoardButton(this.guiLeft + 181, this.guiTop + 49));
+		this.playButton = this.addButton(new PlayButton(this.container, this.guiLeft + 180, this.guiTop + 81));
+		this.resignButton = this.addButton(new ResignButton(this.container, this.guiLeft + 200, this.guiTop + 81));
+		this.drawButton = this.addButton(new OfferDrawButton(this.container, this.guiLeft + 220, this.guiTop + 81 ));
+		this.playComputerButton = this.addButton(new PlayComputerButton(this.container, this.guiLeft + 180, this.guiTop + 101));
+		this.hintButton = this.addButton(new HintButton(this.container, this.guiLeft + 220, this.guiTop + 101 , (button) -> {
+			if(Config.COMMON.allowHints.get() && this.container.tile.challenged.isPresent() && this.container.tile.playing) {
+				
+			}
 		}));
 		
-		this.buildButton = this.addButton(new BuildBoardButton(this.guiLeft + 181, this.guiTop + 49, (button) -> {	
-			PacketHandler.sendToServer(Minecraft.getInstance().world, new ClientChessBoardUpdatePacket((byte) 1));
-		}));
+		this.gameEndDisplay = addButton(new GameEndMessageDisplay(this.guiLeft + 63, this.guiTop + 70));
+		this.challengeDisplay = addButton(new ChallengeDisplay(this.container, this.guiLeft + 63, this.guiTop + 70));
+		this.errorMessageDisplay = addButton(new ErrorMessageDisplay(this.guiLeft + 46, this.guiTop + 185));
+
+		this.computerStrengthSlider = this.addButton(new ComputerStrengthSlider(this.guiLeft + 152, this.guiTop + 46, 70, (double)this.container.tile.computerStrength / 8.0));
 		
-		this.flipbutton = this.addButton(new FlipBoardButton(this.guiLeft + 180, this.guiTop + 29, (button) -> {	
-			this.updateMode(this.container.getMode());
+		this.timeSlider = this.addButton(new TimeLimitSlider(this.guiLeft + 152, this.guiTop + 72, 70, TimeLimitSlider.getInitialVal(this.container.tile.challengedTime)));
+		this.flipbutton = this.addButton(new FlipBoardButton(this.guiLeft + 200, this.guiTop + 101, (button) -> {	
+			this.updateSlotHighlights();
 			
 			this.side = this.side.getOpposite();
+			PacketHandler.sendToServer(Minecraft.getInstance().world, new ClientSetSidePacket(this.side));
 		}));
+
+		this.errorMessageDisplay.visible = false;
+		this.errorMessageDisplay.active = false;
 		
 		this.updateMode(Mode.PLAYING);
 	}
 	
-	@OnlyIn(Dist.CLIENT)
+	@Override
+	protected void renderHoveredToolTip(int mouseX, int mouseY) {
+		if(!(this.hoveredSlot instanceof ChessBoardSquareSlot))
+			super.renderHoveredToolTip(mouseX, mouseY);
+				
+		//render buttons
+		for(Widget w : buttons) {
+			if(w.isHovered() && buttonTooltips.get(w.getClass()) != null) {
+				List<String> tooltip = buttonTooltips.get(w.getClass()).apply(w);
+				if(tooltip != null) {
+					this.renderTooltip(tooltip, mouseX, mouseY, font);
+				}
+			}
+		}
+	}  
+	
+	@Override
+	public void resize(Minecraft m, int w, int h) {
+		this.init(m, w, h);
+		this.updateMode(this.container.getMode());
+	}
+	
 	public void updateSlotHighlights() {
 		for(int i = 0; i < 64; i++)
 			((ChessBoardSquareSlot) this.container.inventorySlots.get(i)).highlight = Optional.empty();
-
+		
+		if(!this.options[1].yes) return;
+		
 		if(this.container.selectedSlot != -1) {
-			ChessHelper.getLegalMoves(this.container.getBoard(), list -> {
+			ChessHelper.getLegalMoves(this.container, this.container.getBoard().toPlay, list -> {
 				for(Pair<Integer, Integer> move : list) {
 					if(move.getFirst() == this.container.selectedSlot) {
 						ChessBoardSquareSlot slot = (ChessBoardSquareSlot) this.container.inventorySlots.get(this.side == PieceColor.WHITE ? move.getSecond() : ChessHelper.getX(move.getSecond()) * 8 + 7 - ChessHelper.getY(move.getSecond()));
@@ -119,6 +222,12 @@ public class ChessBoardScreen extends ContainerScreen<ChessBoardContainer> {
 		if(this.container.getMode() == Mode.PLAYING) {
 			this.minecraft.getTextureManager().bindTexture(TEX_ICONS);
 			
+			if(this.container.getBoard().toPlay != this.container.tile.challengerColor) {
+				this.blit(left + 184, top + 69, 5, 54, 7, 7);
+			} else {
+				this.blit(left + 184, top + 137, 5, 54, 7, 7);
+			}
+			
 			//slots
 			List<Pair<Integer, Integer>> attackedSquares = new ArrayList<>();
 			
@@ -146,16 +255,37 @@ public class ChessBoardScreen extends ContainerScreen<ChessBoardContainer> {
 				drawSlotHighlight(s.getFirst(), s.getSecond(), HighlightMode.ATTACKING.color);
 			}
 			
-			if(this.container.getCheckedSquare() != -1) {
-				drawSlotHighlight(ChessHelper.getX(this.container.getCheckedSquare()), ChessHelper.getY(this.container.getCheckedSquare()), HighlightMode.IN_CHECK.color);
+			if(this.container.getBoard().isInCheck(this.container.getBoard().toPlay.getOpposite())) {
+				this.container.checkedSquare = this.container.getBoard().getKingPos(this.container.getBoard().toPlay.getOpposite());
+				
+			if(this.container.checkedSquare != -1) {
+				drawSlotHighlight(ChessHelper.getX(this.container.checkedSquare), this.side == PieceColor.WHITE ? ChessHelper.getY(this.container.checkedSquare) : 7 - ChessHelper.getY(this.container.checkedSquare), HighlightMode.IN_CHECK.color);
 
 			}
+			}
+
 			
 			if(this.container.selectedSlot != -1) {
 				drawSlotHighlight(ChessHelper.getX(this.container.selectedSlot), 
 						ChessHelper.getY(this.side == PieceColor.WHITE ? this.container.selectedSlot : 
 							ChessHelper.getX(this.container.selectedSlot) * 8 + 7 - ChessHelper.getY(this.container.selectedSlot)), 0x8fE5D400);
 			}
+		}
+		
+		if(this.options[0].yes && (this.container.getMode() == Mode.PLAYING || this.container.getMode() == Mode.BOARD_EDITOR)) {
+			//Coordinates
+			RenderSystem.scalef(0.5f, 0.5f, 0.5f);
+			for(int i = 0; i < 8; i++) {
+				
+				boolean r = this.side == PieceColor.WHITE;
+				//number
+				this.font.drawString(String.valueOf(i + 1), 2*(this.guiLeft + 22), 2*(this.guiTop + (r ? 157 - 18 * i : 31 + 18 * i)), i % 2 == 0 ^ !r ? 0xFFFFFFFF : 0xFF4C7C31);
+				
+				//letter
+				this.font.drawString(ChessHelper.LETTERS.get(i), 2*(this.guiLeft + 35 + 18 * i), 2*(this.guiTop + 168), i % 2 == 0 ? 0xFFFFFFFF : 0xFF4C7C31);
+			}
+			
+			RenderSystem.scalef(2.0f, 2.0f, 2.0f);
 		}
 	}
 	
@@ -167,7 +297,7 @@ public class ChessBoardScreen extends ContainerScreen<ChessBoardContainer> {
 	
 	@Override
 	protected void drawSlot(Slot slotIn) {
-		if (slotIn instanceof ChessBoardSquareSlot || (slotIn instanceof ChessPieceStorageSlot && slotIn.isEnabled() && this.container.getMode() == Mode.BOARD_EDITOR)) {
+		if (slotIn instanceof ChessBoardSquareSlot || (slotIn instanceof ChessPieceStorageSlot && this.container.getMode() == Mode.BOARD_EDITOR)) {
 			 
 			int x = slotIn.xPos;
 			int y = (this.container.getMode() == Mode.PLAYING && this.side == PieceColor.BLACK) ? 186 - slotIn.yPos : slotIn.yPos;
@@ -191,38 +321,68 @@ public class ChessBoardScreen extends ContainerScreen<ChessBoardContainer> {
 	public void updateMode(Mode mode) {
 		setButtonEnabled(this.clearButton, mode == Mode.BOARD_EDITOR);
 		setButtonEnabled(this.buildButton, mode == Mode.BOARD_EDITOR);
+		setButtonEnabled(this.playingColorButton, mode == Mode.BOARD_EDITOR);
+		setButtonEnabled(this.challengerColorButton, mode == Mode.BOARD_EDITOR);
 		setButtonEnabled(this.flipbutton, mode == Mode.PLAYING);
-
+		setButtonEnabled(this.playButton, mode == Mode.PLAYING);
+		setButtonEnabled(this.resignButton, mode == Mode.PLAYING);
+		setButtonEnabled(this.drawButton, mode == Mode.PLAYING);
+		setButtonEnabled(this.timeDisplayOpponent, mode == Mode.PLAYING);
+		setButtonEnabled(this.timeDisplaySelf, mode == Mode.PLAYING);
+		setButtonEnabled(this.hintButton, mode == Mode.PLAYING);
+		setButtonEnabled(this.playComputerButton, mode == Mode.PLAYING);
+		setButtonEnabled(this.timeSlider, mode == Mode.SETTINGS);
+		setButtonEnabled(this.computerStrengthSlider, mode == Mode.SETTINGS);
+		
 		for(CastleOptionButton b : this.castlebuttons) {
 			setButtonEnabled(b, mode == Mode.BOARD_EDITOR);
 		}
+		
+		PieceColor promotion = this.container.getBoard().toPlay.getOpposite();
+		
+		for(PromotionButton b : this.promtionbuttons) {
+			setButtonEnabled(b, mode == Mode.PLAYING && this.container.tile.waitingForPromotion);
+			b.color = promotion;
+		}
+		
+		for(ToggleOptionButton b : this.options) {
+			setButtonEnabled(b, mode == Mode.SETTINGS);
+		}
+		
+		this.gameEndDisplay.visible = false;
+		this.gameEndDisplay.active = false;
+		this.challengeDisplay.visible = false;
+		this.challengeDisplay.active = false;
+		
+		if(mode != Mode.PLAYING) {
+			this.errorMessageDisplay.visible = false;
+			this.errorMessageDisplay.active = false;
+		}
 	}
 	
-	private void setButtonEnabled(Button button, boolean enabled) {
-		button.active = enabled;
-		button.visible = enabled;
+	@Override
+	public boolean mouseDragged(double p_mouseDragged_1_, double p_mouseDragged_3_, int p_mouseDragged_5_, double p_mouseDragged_6_, double p_mouseDragged_8_) {
+		return super.mouseDragged(p_mouseDragged_1_, p_mouseDragged_3_, p_mouseDragged_5_, p_mouseDragged_6_, p_mouseDragged_8_) 
+			&&( (this.computerStrengthSlider.isHovered() && this.computerStrengthSlider.mouseDragged(p_mouseDragged_1_, p_mouseDragged_3_, p_mouseDragged_5_, p_mouseDragged_6_, p_mouseDragged_8_)
+			|| (this.timeSlider.isHovered() && this.timeSlider.mouseDragged(p_mouseDragged_1_, p_mouseDragged_3_, p_mouseDragged_5_, p_mouseDragged_6_, p_mouseDragged_8_))));
+	}
+	
+	
+	private void setButtonEnabled(Widget widget, boolean enabled) {
+		widget.active = enabled;
+		widget.visible = enabled;
 	}
 
 	@Override
 	public void render(int mouseX, int mouseY, float partialticks) {
 		this.renderBackground();
-		
 		if (this.container.getMode() == Mode.BOARD_EDITOR || this.container.getMode() == Mode.PLAYING) {
 			int left = this.guiLeft;
 			int top = this.guiTop;
 			this.drawGuiContainerBackgroundLayer(partialticks, mouseX, mouseY);
 
-			RenderSystem.disableRescaleNormal();
-			RenderSystem.disableDepthTest();
-			
-			for (int i = 0; i < this.buttons.size(); ++i) {
-				this.buttons.get(i).render(mouseX, mouseY, partialticks);
-			}
-			
 			RenderSystem.pushMatrix();
 			RenderSystem.translatef((float) left, (float) top, 0.0F);
-			RenderSystem.color4f(1.0F, 1.0F, 1.0F, 1.0F);
-			RenderSystem.enableRescaleNormal();
 			this.hoveredSlot = null;
 
 			RenderSystem.glMultiTexCoord2f(33986, 240.0F, 240.0F);
@@ -230,7 +390,7 @@ public class ChessBoardScreen extends ContainerScreen<ChessBoardContainer> {
 
 			for (int i = 0; i < this.container.inventorySlots.size(); ++i) {
 				Slot slot = this.container.inventorySlots.get(i);
-				if (slot.isEnabled()) {
+				if (slot.isEnabled() || this.container.getMode() == Mode.PLAYING && slot instanceof ChessBoardSquareSlot && this.container.tile.waitingForPromotion) {
 					this.drawSlot(slot);
 				}
 
@@ -246,7 +406,20 @@ public class ChessBoardScreen extends ContainerScreen<ChessBoardContainer> {
 					RenderSystem.enableDepthTest();
 				}
 			}
-
+			
+			RenderSystem.popMatrix();
+			RenderSystem.color4f(1.0F, 1.0F, 1.0F, 1.0F);
+			RenderSystem.disableRescaleNormal();
+			RenderSystem.disableDepthTest();
+			
+			for (int i = 0; i < this.buttons.size(); ++i) {
+				this.buttons.get(i).render(mouseX, mouseY, partialticks);
+			}
+			
+			RenderSystem.enableRescaleNormal();
+			RenderSystem.pushMatrix();
+			RenderSystem.translatef((float) left, (float) top, 0.0F);
+			
 			this.drawGuiContainerForegroundLayer(mouseX, mouseY);
 
 			PlayerInventory playerinventory = this.minecraft.player.inventory;
@@ -275,19 +448,67 @@ public class ChessBoardScreen extends ContainerScreen<ChessBoardContainer> {
 				int l1 = this.touchUpX + (int) ((float) l2 * f);
 				int i2 = this.touchUpY + (int) ((float) i3 * f);
 				this.drawItemStack(this.returningStack, l1, i2, (String) null);
-			}
+			} 
+			
+			if(this.container.tile.playing && this.container.getMode() == Mode.PLAYING) {
 
+				if (this.container.tile.challenger.isPresent()) 
+					drawName(this.container.tile.getWorld().getPlayerByUuid(this.container.tile.challenger.get()).getName().getString(), 184, 125);
+				if (this.container.tile.isPlayingComputer) 
+					drawName("Computer", 184, 57);
+				else if (this.container.tile.challenged.isPresent()) 
+					drawName(this.container.tile.getWorld().getPlayerByUuid(this.container.tile.challenged.get()).getDisplayName().getString(), 184, 57);
+
+			}
+			
 			RenderSystem.popMatrix();
 			RenderSystem.enableDepthTest();
 		} else {
 			super.render(mouseX, mouseY, partialticks);
 		}
 		
-		if(!(hoveredSlot instanceof ChessBoardSquareSlot))
-			this.renderHoveredToolTip(mouseX, mouseY);
+		this.renderHoveredToolTip(mouseX, mouseY);
+	}
+	
+	private void drawName(String name, int x, int y) {
+		if(this.font.getStringWidth(name) > 52) {
+			RenderSystem.scalef(0.5f, 0.5f, 0.5f);
+			this.font.drawString(name, x * 2 + 2, y * 2 + 4 , 0x331F0D);
+			RenderSystem.scalef(2.0f, 2.0f, 2.0f);
+		} else {
+			this.font.drawString(name, x, y, 0x331F0D);
+		}
+	}
+	
+	public void displayInvalidPosError() {
+		this.errorMessageDisplay.message = "Invalid chess position!";
+		this.errorMessageDisplay.active = true;
+		this.errorMessageDisplay.visible = true;
 	}
 
 	public PieceColor getSide() {
 		return this.side ;
+	}
+	
+	{
+		//init descriptions
+		buttonTooltips.put(PlayButton.class, (w) -> ImmutableList.of("Challenge another Player"));
+		buttonTooltips.put(PlayComputerButton.class, (w) -> {
+			if(this.container.tile.isPlayingComputer && this.container.tile.playing)
+				return ImmutableList.of("Stop the game");
+			else return ImmutableList.of("Play against the " + Config.CLIENT.computername.get());
+		});
+		
+		buttonTooltips.put(HintButton.class,  (w) -> ImmutableList.of("Get a hint"));
+		buttonTooltips.put(OfferDrawButton.class,  (w) -> ImmutableList.of("Offer draw"));
+		buttonTooltips.put(ResignButton.class,  (w) -> ImmutableList.of("Resign the game"));
+		buttonTooltips.put(FlipBoardButton.class, (w) -> ImmutableList.of("Flip Board"));
+		buttonTooltips.put(ComputerStrengthSlider.class,  (w) -> ImmutableList.of("Set the " + Config.CLIENT.computername.get() + "'s playing level", "0 - 3: Beginner", "4 - 6: Intermediate", "7+: Pro"));
+		buttonTooltips.put(TimeLimitSlider.class, (w) -> ImmutableList.of("Set the time each player gets", "1 minute: bullet", "3 - 5 minutes: blitz", "10 minutes: rapid",  "20 minutes+: classical"));
+		buttonTooltips.put(CastleOptionButton.class, (w) -> ImmutableList.of("Enable / Disable casteling"));
+		buttonTooltips.put(ClearBoardButton.class, (w) -> ImmutableList.of("Clear the board"));
+		buttonTooltips.put(BuildBoardButton.class, (w) -> ImmutableList.of("Set up the board", "only works when all the needed pieces are in storage"));
+		buttonTooltips.put(PlayingColorButton.class, (w) -> ImmutableList.of("Set color that makes the next move"));
+		buttonTooltips.put(ChallengerColorButton.class, (w) -> ImmutableList.of("Set color that the person who starts the next challenge plays"));
 	}
 }

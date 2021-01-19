@@ -4,16 +4,12 @@ import java.util.Optional;
 import java.util.function.Supplier;
 
 import com.xX_deadbush_Xx.chessmod.game_logic.ChessBoardContainer;
-import com.xX_deadbush_Xx.chessmod.game_logic.Util;
+import com.xX_deadbush_Xx.chessmod.game_logic.ChessHelper;
 
-import net.minecraft.inventory.container.Slot;
 import net.minecraft.item.ItemStack;
-import net.minecraftforge.api.distmarker.Dist;
-import net.minecraftforge.api.distmarker.OnlyIn;
 
 public class ChessBoardSquareSlot extends ToggleableSlot {
 	
-	@OnlyIn(Dist.CLIENT)
 	public Optional<HighlightMode> highlight = Optional.empty();
 	
 	public ChessBoardSquareSlot(ChessBoardContainer container, int index, int xPosition, int yPosition, Supplier<Boolean> enabled) {
@@ -39,23 +35,17 @@ public class ChessBoardSquareSlot extends ToggleableSlot {
 		this.getItemHandler().insertItem(this.slotNumber, stack, false);
 	}
 
-	public void clear(ChessBoardContainer chessBoardContainer) {
+	public void clear(ChessBoardContainer container) {
 		if(!this.getHasStack()) return;
 		
-		Slot slot = chessBoardContainer.inventorySlots.get(Util.getStorageSlotIndex(getStack()));
-		if(slot.getHasStack()) {
-			slot.decrStackSize(-1);
-		} else slot.putStack(getStack());
-		
-		this.getItemHandler().insertItem(this.slotNumber, ItemStack.EMPTY, false);
+		ChessHelper.putPieceBack(container, getStack());
+		putStack(ItemStack.EMPTY);
 	}
 	
-	@OnlyIn(Dist.CLIENT)
 	public void mark(HighlightMode mode) {
 		this.highlight = Optional.of(mode);
 	}
 	
-	@OnlyIn(Dist.CLIENT)
 	public static enum HighlightMode {
 		MOVED(0x8fE5D400),
 		VISIBLE(0x00000000),

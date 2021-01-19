@@ -1,12 +1,20 @@
 package com.xX_deadbush_Xx.chessmod.objects;
+import java.util.List;
+
+import com.xX_deadbush_Xx.chessmod.game_logic.ChessPieceType;
+import com.xX_deadbush_Xx.chessmod.game_logic.PieceColor;
+
 import net.minecraft.block.Block;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.HorizontalBlock;
+import net.minecraft.client.util.ITooltipFlag;
+import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.entity.player.ServerPlayerEntity;
 import net.minecraft.inventory.container.INamedContainerProvider;
 import net.minecraft.inventory.container.SimpleNamedContainerProvider;
 import net.minecraft.inventory.container.WorkbenchContainer;
+import net.minecraft.item.ItemStack;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.ActionResultType;
 import net.minecraft.util.Hand;
@@ -15,6 +23,7 @@ import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.BlockRayTraceResult;
 import net.minecraft.util.math.shapes.ISelectionContext;
 import net.minecraft.util.math.shapes.VoxelShape;
+import net.minecraft.util.text.ITextComponent;
 import net.minecraft.util.text.StringTextComponent;
 import net.minecraft.world.IBlockReader;
 import net.minecraft.world.World;
@@ -31,6 +40,30 @@ public class ChessBoardBlock extends HorizontalBlock {
 	@Override
 	public VoxelShape getShape(BlockState state, IBlockReader worldIn, BlockPos pos, ISelectionContext context) {
 		return SHAPE;
+	}
+	
+	@Override
+	public void onBlockPlacedBy(World worldIn, BlockPos pos, BlockState state, LivingEntity placer, ItemStack stack) {
+		if(placer instanceof PlayerEntity) {
+			PlayerEntity player = (PlayerEntity)placer;
+			if(player.abilities.isCreativeMode && player.isSneaking()) {
+				ChessBoardTile tile = (ChessBoardTile) worldIn.getTileEntity(pos);
+				if(tile != null) {
+					for(PieceColor color : PieceColor.values()) {
+						for(ChessPieceType type : ChessPieceType.values()) {
+							tile.getInventory().insertItem(color.ordinal() * 6 + type.ordinal(), new ItemStack(type.getItem(color), 32), false);
+						}
+					}
+				}
+			}
+		}
+	}
+	
+	@Override
+	public void addInformation(ItemStack stack, IBlockReader worldIn, List<ITextComponent> tooltip, ITooltipFlag flagIn) {
+		if(flagIn.isAdvanced()) {
+			tooltip.add(new StringTextComponent("§7Place while §dsneaking §7in §bcreative §7mode to fill with chess pieces"));
+		}
 	}
 	
 	@Override

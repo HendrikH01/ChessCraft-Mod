@@ -28,12 +28,28 @@ public class PacketHandler {
 		INSTANCE.registerMessage(id++, ClientSetChessBoardTabPacket.class, ClientSetChessBoardTabPacket::encode, ClientSetChessBoardTabPacket::decode, ClientSetChessBoardTabPacket::handle);
 		INSTANCE.registerMessage(id++, ClientChessBoardUpdatePacket.class, ClientChessBoardUpdatePacket::encode, ClientChessBoardUpdatePacket::decode, ClientChessBoardUpdatePacket::handle);
 		INSTANCE.registerMessage(id++, ClientSetCastlingOptionPacket.class, ClientSetCastlingOptionPacket::encode, ClientSetCastlingOptionPacket::decode, ClientSetCastlingOptionPacket::handle);
+		INSTANCE.registerMessage(id++, ClientSetSidePacket.class, ClientSetSidePacket::encode, ClientSetSidePacket::decode, ClientSetSidePacket::handle);
+		INSTANCE.registerMessage(id++, ClientSetTimePacket.class, ClientSetTimePacket::encode, ClientSetTimePacket::decode, ClientSetTimePacket::handle);
+		INSTANCE.registerMessage(id++, ClientSetStrengthPacket.class, ClientSetStrengthPacket::encode, ClientSetStrengthPacket::decode, ClientSetStrengthPacket::handle);
+		INSTANCE.registerMessage(id++, ClientEngineMakeMovePacket.class, ClientEngineMakeMovePacket::encode, ClientEngineMakeMovePacket::decode, ClientEngineMakeMovePacket::handle);
+		INSTANCE.registerMessage(id++, ClientPromotionPacket.class, ClientPromotionPacket::encode, ClientPromotionPacket::decode, ClientPromotionPacket::handle);
+		INSTANCE.registerMessage(id++, ClientRequestTimePacket.class, ClientRequestTimePacket::encode, ClientRequestTimePacket::decode, ClientRequestTimePacket::handle);
+		INSTANCE.registerMessage(id++, ClientStartPlayingPacket.class, ClientStartPlayingPacket::encode, ClientStartPlayingPacket::decode, ClientStartPlayingPacket::handle);
 
+		
 		//SERVER TO CLIENT
 		INSTANCE.registerMessage(id++, ServerSetChessBoardTabPacket.class, ServerSetChessBoardTabPacket::encode, ServerSetChessBoardTabPacket::decode, ServerSetChessBoardTabPacket::handle);
 		INSTANCE.registerMessage(id++, ServerChessBoardUpdatePacket.class, ServerChessBoardUpdatePacket::encode, ServerChessBoardUpdatePacket::decode, ServerChessBoardUpdatePacket::handle);
 		INSTANCE.registerMessage(id++, ServerMovePiecePacket.class, ServerMovePiecePacket::encode, ServerMovePiecePacket::decode, ServerMovePiecePacket::handle);
 		INSTANCE.registerMessage(id++, ServerSetCastlingOptionPacket.class, ServerSetCastlingOptionPacket::encode, ServerSetCastlingOptionPacket::decode, ServerSetCastlingOptionPacket::handle);
+		INSTANCE.registerMessage(id++, ServerSetTimePacket.class, ServerSetTimePacket::encode, ServerSetTimePacket::decode, ServerSetTimePacket::handle);
+		INSTANCE.registerMessage(id++, ServerSetStrengthPacket.class, ServerSetStrengthPacket::encode, ServerSetStrengthPacket::decode, ServerSetStrengthPacket::handle);
+		INSTANCE.registerMessage(id++, ServerEngineMakeMovePacket.class, ServerEngineMakeMovePacket::encode, ServerEngineMakeMovePacket::decode, ServerEngineMakeMovePacket::handle);
+		INSTANCE.registerMessage(id++, ServerPromotionPacket.class, ServerPromotionPacket::encode, ServerPromotionPacket::decode, ServerPromotionPacket::handle);
+		INSTANCE.registerMessage(id++, ServerPlayerDefeatedPacket.class, ServerPlayerDefeatedPacket::encode, ServerPlayerDefeatedPacket::decode, ServerPlayerDefeatedPacket::handle);
+		INSTANCE.registerMessage(id++, ServerTimeReponsePacket.class, ServerTimeReponsePacket::encode, ServerTimeReponsePacket::decode, ServerTimeReponsePacket::handle);
+		INSTANCE.registerMessage(id++, ServerChessDrawPacket.class, ServerChessDrawPacket::encode, ServerChessDrawPacket::decode, ServerChessDrawPacket::handle);
+		INSTANCE.registerMessage(id++, ServerStartPlayingPacket.class, ServerStartPlayingPacket::encode, ServerStartPlayingPacket::decode, ServerStartPlayingPacket::handle);
 
 	}
 

@@ -42,7 +42,8 @@ public class ModRegistry {
 	public static final RegistryObject<Item> BLACK_KING = ITEMS.register("black_king", () -> new ChessPiece(ChessPieceType.KING, PieceColor.BLACK, new Item.Properties().group(ChessMod.GROUP)));
 	
 	public static final RegistryObject<Item> CHESS_BOARD_ITEM = ITEMS.register("chess_board_item", () -> new BlockItem(CHESS_BOARD.get(), new Item.Properties().group(ChessMod.GROUP)));
-	 
+	public static final RegistryObject<Item> CARVING_KNIFE = ITEMS.register("carving_knife", () -> new Item(new Item.Properties().group(ChessMod.GROUP)));
+
 	
 	//TEs
 	public static final RegistryObject<TileEntityType<ChessBoardTile>> CHESS_BOARD_TILE = TILES.register("chess_board_tile", () -> TileEntityType.Builder.create(ChessBoardTile::new, CHESS_BOARD.get()).build(null));

@@ -31,6 +31,7 @@ public class ServerSetCastlingOptionPacket {
 		NetworkEvent.Context context = ctx.get();
 		context.enqueueWork(new Runnable() {
 
+			@SuppressWarnings("resource")
 			@Override
 			public void run() {
 				PlayerEntity player = Minecraft.getInstance().player;

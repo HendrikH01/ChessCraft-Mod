@@ -1,0 +1,31 @@
+---- Minecraft Crash Report ----
+// Uh... Did I do that?
+
+Time: 13/01/21 17:15
+Description: Exception in server tick loop
+
+java.lang.NullPointerException: Exception in server tick loop
+	at net.minecraftforge.fml.ModLoader.<init>(ModLoader.java:117) ~[forge-1.15.2-31.1.0_mapped_snapshot_20201219-1.15.1-recomp.jar:?] {}
+	at net.minecraftforge.fml.ModLoader.get(ModLoader.java:146) ~[forge-1.15.2-31.1.0_mapped_snapshot_20201219-1.15.1-recomp.jar:?] {}
+	at net.minecraftforge.fml.server.ServerModLoader.begin(ServerModLoader.java:45) ~[forge-1.15.2-31.1.0_mapped_snapshot_20201219-1.15.1-recomp.jar:?] {}
+	at net.minecraft.server.dedicated.DedicatedServer.init(DedicatedServer.java:125) ~[forge-1.15.2-31.1.0_mapped_snapshot_20201219-1.15.1-recomp.jar:?] {}
+	at net.minecraft.server.MinecraftServer.run(MinecraftServer.java:636) [forge-1.15.2-31.1.0_mapped_snapshot_20201219-1.15.1-recomp.jar:?] {}
+	at java.lang.Thread.run(Unknown Source) [?:1.8.0_201] {}
+
+
+A detailed walkthrough of the error, its code path and all known details is as follows:
+---------------------------------------------------------------------------------------
+
+-- System Details --
+Details:
+	Minecraft Version: 1.15.2
+	Minecraft Version ID: 1.15.2
+	Operating System: Windows 10 (amd64) version 10.0
+	Java Version: 1.8.0_201, Oracle Corporation
+	Java VM Version: Java HotSpot(TM) 64-Bit Server VM (mixed mode), Oracle Corporation
+	Memory: 484837712 bytes (462 MB) / 1177026560 bytes (1122 MB) up to 3790077952 bytes (3614 MB)
+	CPUs: 8
+	JVM Flags: 0 total; 
+	Data Packs: 
+	Is Modded: Definitely; Server brand changed to 'forge'
+	Type: Dedicated Server (map_server.txt)

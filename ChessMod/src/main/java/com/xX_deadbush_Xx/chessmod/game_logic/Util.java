@@ -32,5 +32,5 @@ public class Util {
 			ChessPiece piece = (ChessPiece)stack.getItem();
 			return 64 + piece.type.ordinal() + piece.color.ordinal() * 6;
 		} else return -1;
-	}
+	}	
 }

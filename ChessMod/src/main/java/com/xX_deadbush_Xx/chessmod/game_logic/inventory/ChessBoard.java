@@ -47,8 +47,22 @@ public class ChessBoard implements IItemHandler {
 		return this.inv[slot];
 	}
 	
+	public ItemStack setStackInSlot(int slot, ItemStack stack) {
+		return this.inv[slot] = stack;
+	}
+	
 	public ItemStack getPieceAt(int x, int y) {
 		return this.inv[x * 8 + y];
+	}
+	
+	public ChessBoard copy() {
+		ChessBoard c = new ChessBoard();
+		c.inv = Arrays.copyOf(this.inv, 64);
+		c.canCastle = Arrays.copyOf(this.canCastle, 4);
+		c.enPassantSquare = this.enPassantSquare;
+		c.toPlay = this.toPlay;
+		
+		return c;
 	}
 	
 	/**
@@ -65,11 +79,9 @@ public class ChessBoard implements IItemHandler {
 		if(!withinBounds(second))
 			return null;
 		
-		ItemStack taken = capturePiece(container, ChessHelper.getX(second), ChessHelper.getY(second));
+		ItemStack taken = removePieceAt(container, ChessHelper.getX(second), ChessHelper.getY(second));
 		placePieceAt(second, removePieceFrom(first));
-		
-		this.toPlay = (this.toPlay == PieceColor.WHITE) ? PieceColor.BLACK : PieceColor.WHITE;
-		
+				
 		return taken;
 	}
 	
@@ -168,6 +180,59 @@ public class ChessBoard implements IItemHandler {
 		}
 		
 		return kingpos;
+	}
+	
+	public boolean validatePosition() {
+		int kposblack = -1;
+		int kposwhite = -1;
+		
+		for(int i = 0; i < 64; i++) {
+			if(inv[i].isEmpty()) continue;
+			if(((ChessPiece)inv[i].getItem()).type == ChessPieceType.KING) {
+				if(((ChessPiece)inv[i].getItem()).color == PieceColor.WHITE) {
+					if(kposwhite != -1) return false;
+					else kposwhite = i;
+				} else {
+					if(kposblack != -1) return false;
+					else kposblack = i;
+				}
+			}
+		}
+		
+		if(kposblack == -1 || kposwhite == -1)
+			return false;
+		
+		if(isInCheck(toPlay.getOpposite())) {
+			return false;
+		}
+		
+		if(kposblack != 32) {
+			this.canCastle[3] = false;
+			this.canCastle[2] = false;
+		} else {
+			if(inv[0].isEmpty() || ((ChessPiece)inv[0].getItem()).type != ChessPieceType.ROOK || ((ChessPiece)inv[0].getItem()).color != PieceColor.BLACK) {
+				this.canCastle[2] = false;
+			}
+			
+			if(inv[56].isEmpty() || ((ChessPiece)inv[56].getItem()).type != ChessPieceType.ROOK || ((ChessPiece)inv[56].getItem()).color != PieceColor.BLACK) {
+				this.canCastle[3] = false;
+			}
+		}
+		
+		if(kposwhite != 39) {
+			this.canCastle[0] = false;
+			this.canCastle[1] = false;
+		} else {
+			if(inv[7].isEmpty() || ((ChessPiece)inv[7].getItem()).type != ChessPieceType.ROOK || ((ChessPiece)inv[7].getItem()).color != PieceColor.WHITE) {
+				this.canCastle[0] = false;
+			}
+			
+			if(inv[63].isEmpty() || ((ChessPiece)inv[63].getItem()).type != ChessPieceType.ROOK || ((ChessPiece)inv[63].getItem()).color != PieceColor.WHITE) {
+				this.canCastle[1] = false;
+			}
+		}
+		
+		return true;
 	}
 	
 	public boolean isInCheck(PieceColor color) {
@@ -318,15 +383,14 @@ public class ChessBoard implements IItemHandler {
 		return this.toPlay ;
 	}
 
-	public ItemStack capturePiece(ChessBoardContainer container, int x, int y) {
+	public ItemStack removePieceAt(ChessBoardContainer container, int x, int y) {
 			if(!withinBounds(x, y))
 				return null;
 			
 			ItemStack captured = inv[8 * x + y];
 			inv[8 * x + y] = ItemStack.EMPTY;
-			if(!captured.isEmpty())
-				container.getInventory().get(Util.getStorageSlotIndex(captured)).getStack().grow(1);
+			
+			ChessHelper.putPieceBack(container, captured);
 			return captured;
-
 	}
 }

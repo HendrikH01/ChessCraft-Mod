@@ -6,6 +6,7 @@ import com.xX_deadbush_Xx.chessmod.game_logic.ChessBoardContainer;
 import com.xX_deadbush_Xx.chessmod.game_logic.ChessBoardContainer.Mode;
 
 import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.entity.player.ServerPlayerEntity;
 import net.minecraft.network.PacketBuffer;
 import net.minecraftforge.fml.network.NetworkEvent;
 
@@ -33,7 +34,7 @@ public class ClientSetChessBoardTabPacket {
 				PlayerEntity sender = context.getSender();
 				if(sender.openContainer instanceof ChessBoardContainer && sender.openContainer != null) {
 					((ChessBoardContainer)sender.openContainer).setMode(Mode.values()[msg.tab]);
-					PacketHandler.sendToNearby(sender.world, sender, new ServerSetChessBoardTabPacket(msg.tab));
+					PacketHandler.sendTo((ServerPlayerEntity) sender, new ServerSetChessBoardTabPacket(msg.tab));
 				}
 			}
 		});
