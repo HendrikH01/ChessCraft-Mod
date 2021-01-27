@@ -10,11 +10,13 @@ import javax.annotation.Nullable;
 import com.mojang.datafixers.util.Pair;
 import com.xX_deadbush_Xx.chessmod.ChessMod;
 import com.xX_deadbush_Xx.chessmod.client.ChessBoardScreen;
+import com.xX_deadbush_Xx.chessmod.client.ClientProxy;
 import com.xX_deadbush_Xx.chessmod.game_logic.inventory.ChessBoard;
 import com.xX_deadbush_Xx.chessmod.game_logic.inventory.ChessBoardSquareSlot;
 import com.xX_deadbush_Xx.chessmod.game_logic.inventory.ChessPieceStorageSlot;
 import com.xX_deadbush_Xx.chessmod.game_logic.inventory.ToggleableSlotInventory;
 import com.xX_deadbush_Xx.chessmod.network.ClientEngineMakeMovePacket;
+import com.xX_deadbush_Xx.chessmod.network.ClientMakeMovePacket;
 import com.xX_deadbush_Xx.chessmod.network.PacketHandler;
 import com.xX_deadbush_Xx.chessmod.network.ServerChessBoardUpdatePacket;
 import com.xX_deadbush_Xx.chessmod.network.ServerChessDrawPacket;
@@ -26,6 +28,7 @@ import com.xX_deadbush_Xx.chessmod.objects.ChessPiece;
 import com.xX_deadbush_Xx.chessmod.objects.ModRegistry;
 
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.audio.SimpleSound;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.entity.player.PlayerInventory;
 import net.minecraft.inventory.container.ClickType;
@@ -136,7 +139,7 @@ public class ChessBoardContainer extends Container {
 			
 			return slot.getStack();
 
-		} else if (this.mode == Mode.PLAYING) {
+		} else if (this.mode == Mode.PLAYING && this.tile.getWorld().isRemote) {
 			
 			//if playing and not your turn you cant modify the board
 			if(this.tile.playing) {
@@ -155,30 +158,44 @@ public class ChessBoardContainer extends Container {
 					return ItemStack.EMPTY;
 				}
 				
-				ItemStack first = this.inventorySlots.get(selectedSlot).getStack();
+				ItemStack moved = this.inventorySlots.get(selectedSlot).getStack();
 				
-				if(!first.isEmpty()) {
-					if(!inslot.isEmpty() && ((ChessPiece)inslot.getItem()).color == this.board.getCurrentColor()) {
+					if(!moved.isEmpty()) {
+						if(!inslot.isEmpty() && ((ChessPiece)inslot.getItem()).color == this.board.getCurrentColor()) {
 						this.selectedSlot = original;
 					}
-					else {
-						ChessHelper.executeMove(this, this.selectedSlot, original, () -> {
-							this.board.toPlay = this.board.toPlay.getOpposite();
-							this.checkForMate(this.board.toPlay);
+					
+					else if(this.tile.getWorld().isRemote){
+						
+						final int first = this.selectedSlot;
+						getLegalMoves(this, this.getBoard().toPlay, moves -> {
+							
+							if(moves.contains(Pair.of(first, original))) {
+									
+									ClientProxy.playSound(ModRegistry.MOVE_PIECE.get());
 
-							if(this.tile.getWorld().isRemote) {
-								if(Minecraft.getInstance().currentScreen != null && Minecraft.getInstance().currentScreen instanceof ChessBoardScreen) {
-									((ChessBoardScreen)Minecraft.getInstance().currentScreen).updateSlotHighlights();
-								}
-								
-								if(this.tile.isPlayingComputer && this.tile.playing && !this.tile.waitingForPromotion) {
-									makeComputerMove();
-								}
-							} else {
-								PacketHandler.sendToNearby(this.tile.getWorld(), this.tile.getPos(), new ServerChessBoardUpdatePacket(null, (byte)(6 + this.board.toPlay.ordinal())));
-							}
+									PacketHandler.sendToServer(this.tile.getWorld(), new ClientMakeMovePacket(this.board.toPlay, first, original));
+									ChessPiece item = (ChessPiece)moved.getItem();
+									ChessHelper.executeMove(this, first, original, "");
+									this.board.toPlay = this.board.toPlay.getOpposite();
 
+									if(item.type == ChessPieceType.PAWN) {
+										if(getY(original) == 0 && item.color == PieceColor.WHITE || getY(original) == 7 && item.color == PieceColor.BLACK) {
+											
+											//promotion
+											this.tile.promotionColor = Optional.of(this.board.toPlay.getOpposite());
+											if(Minecraft.getInstance().currentScreen != null && Minecraft.getInstance().currentScreen instanceof ChessBoardScreen) {
+												((ChessBoardScreen)Minecraft.getInstance().currentScreen).updateMode(this.getMode());
+											}
+										}
+									}
+									
+									if(Minecraft.getInstance().currentScreen != null && Minecraft.getInstance().currentScreen instanceof ChessBoardScreen) {
+										((ChessBoardScreen)Minecraft.getInstance().currentScreen).updateSlotHighlights();
+									}
+								}
 						});
+						
 						this.selectedSlot = -1;
 						return ItemStack.EMPTY;
 					}
@@ -256,7 +273,6 @@ public class ChessBoardContainer extends Container {
 		return this.board;
 	}
 	
-	@SuppressWarnings("resource")
 	public void tryPromotePawn(ChessPieceType type, PieceColor color) {
 		if(type == ChessPieceType.PAWN || type == ChessPieceType.KING) return;
 		
@@ -272,21 +288,16 @@ public class ChessBoardContainer extends Container {
 						this.getBoard().removePieceAt(this, x, y);
 						this.getBoard().placePieceAt(x, y, piece);
 						
-						this.tile.waitingForPromotion = false;
+						this.tile.promotionColor = Optional.empty();
 						
 						break;
 					}
 				}
 			}
-			
-			//COMPUTER MOVE
-			if(this.tile.getWorld().isRemote && this.tile.isPlayingComputer && !this.tile.waitingForPromotion) {
-				makeComputerMove();
-			}
 		}
 	}
 	
- 	public void makeComputerMove() {
+ 	public void makeComputerMove(@Nullable Runnable callback) {
 		String fen = this.board.getFEN(this.tile.challengerColor.getOpposite());
 		ChessEngineManager.getNextMove(fen, this.tile.computerStrength, result -> {
 			
@@ -301,11 +312,20 @@ public class ChessBoardContainer extends Container {
 						p = result.substring(4, 5);
 					}
 					
-					if(moves.contains(Pair.of(f, s)))
+					if(moves.contains(Pair.of(f, s))) {
 						PacketHandler.sendToServer(this.tile.getWorld(), new ClientEngineMakeMovePacket(f, s, p));
+						
+						if(callback != null)
+							callback.run();
+					}
 				});
 			} catch(Exception e) {
 				e.printStackTrace();
+			}
+			
+			finally {
+				System.out.println("yee");
+				this.tile.waitingForComputerMove = false;
 			}
 		});
  	}
@@ -321,7 +341,7 @@ public class ChessBoardContainer extends Container {
 			ChessEngineManager.getLegalMoves(this.board.getFEN(mated), (result) -> {
 				if(result.isEmpty()) {
 					//mate
-					PacketHandler.sendToNearby(this.tile.getWorld(), this.tile.getPos(), new ServerPlayerDefeatedPacket(mated == this.tile.challengerColor, LoseReason.CHECKMATE));
+					PacketHandler.sendToNearby(this.tile.getWorld(), this.tile.getPos(), new ServerPlayerDefeatedPacket(mated != this.tile.challengerColor, LoseReason.CHECKMATE));
 				}
 			});
 		} else {
@@ -360,16 +380,27 @@ public class ChessBoardContainer extends Container {
 				   this.inventorySlots.get(74).getStack().getCount() >= 1 &&
 				   this.inventorySlots.get(75).getStack().getCount() >= 1) {
 						
-					buildBoard();
-				}
+				buildBoard();
+			}
 			break;
 		}
 		case 2: {
-			//draw
-			if(this.tile.playing) {
-				this.tile.playing = false;
-
-				System.out.println("Draw accepted!");
+			//offer draw
+			if(this.tile.playing && this.tile.challenger.isPresent() && this.tile.challenged.isPresent()) {
+				
+				this.tile.challengerOfferedDraw = Optional.of(sender.equals(this.tile.challenger.get()));
+				
+				if(this.tile.getWorld().isRemote && !Minecraft.getInstance().player.getUniqueID().equals(sender)) {
+					if(Minecraft.getInstance().currentScreen != null && Minecraft.getInstance().currentScreen instanceof ChessBoardScreen) {
+						ChessBoardScreen screen = ((ChessBoardScreen)Minecraft.getInstance().currentScreen);
+						PlayerEntity player = this.tile.getWorld().getPlayerByUuid(sender);
+						if(player == null) return;
+						
+						screen.drawDisplay.active = true;
+						screen.drawDisplay.visible = true;
+						screen.drawDisplay.challenger = player.getName().getString();
+					}
+				}
 			}
 			break;
 		}
@@ -401,25 +432,43 @@ public class ChessBoardContainer extends Container {
 		}
 		case 8: {
 			//stahp
-			this.tile.playing = false;
+			this.tile.stopPlaying();
+			this.tile.isPlayingComputer = false;
 			this.tile.challenged = Optional.empty();
 			this.tile.challenger = Optional.empty();
+			this.tile.challengerOfferedDraw = Optional.empty();
+			if(!this.tile.getWorld().isRemote) this.tile.markDirty();
 			break;
 		}
 		case 9: {
 			//cancel challenge
 			this.tile.waitingForChallenged = false;
 			this.tile.challenger = Optional.empty();
-			this.tile.playing = false;
+			this.tile.stopPlaying();
 			break;
 		}
 		case 10: {
 			//challenge accepted
 			this.tile.waitingForChallenged = false;
+			this.tile.waitingForComputerMove = false;
 			this.tile.isPlayingComputer = false;
 			this.tile.playing = true;
 			this.tile.challenged = Optional.of(sender);
 			break;
+		}
+		case 11: {
+			//update highlights
+			if(this.tile.getWorld().isRemote && !sender.equals(Minecraft.getInstance().player.getUniqueID())) {
+				if(Minecraft.getInstance().currentScreen != null && Minecraft.getInstance().currentScreen instanceof ChessBoardScreen) {
+					((ChessBoardScreen)Minecraft.getInstance().currentScreen).updateSlotHighlights();
+				}
+			}
+		}
+		case 12: {
+			//draw
+			if(!this.tile.getWorld().isRemote) {
+				PacketHandler.sendToNearby(this.tile.getWorld(), this.tile.getPos(), new ServerChessDrawPacket(DrawReason.ACCEPTED));
+				}
 		}
 		}
 	}
@@ -543,7 +592,7 @@ public class ChessBoardContainer extends Container {
     private void addSlots(PlayerInventory playerInventory, ChessBoardTile tile) {
 		for (int i = 0; i < 8; ++i) {
 			for (int j = 0; j < 8; ++j) {
-				this.addSlot(new ChessBoardSquareSlot(this, j + i * 8, 22 + i * 18, 30 + j * 18, () -> mode == Mode.PLAYING && !this.tile.waitingForPromotion || mode == Mode.BOARD_EDITOR));
+				this.addSlot(new ChessBoardSquareSlot(this, j + i * 8, 22 + i * 18, 30 + j * 18, () -> mode == Mode.PLAYING && !this.tile.promotionColor.isPresent() || mode == Mode.BOARD_EDITOR));
 			}
 		}
 

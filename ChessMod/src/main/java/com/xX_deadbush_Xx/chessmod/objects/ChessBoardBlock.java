@@ -1,4 +1,5 @@
 package com.xX_deadbush_Xx.chessmod.objects;
+import java.util.ArrayList;
 import java.util.List;
 
 import com.xX_deadbush_Xx.chessmod.game_logic.ChessPieceType;
@@ -11,6 +12,7 @@ import net.minecraft.client.util.ITooltipFlag;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.entity.player.ServerPlayerEntity;
+import net.minecraft.inventory.InventoryHelper;
 import net.minecraft.inventory.container.INamedContainerProvider;
 import net.minecraft.inventory.container.SimpleNamedContainerProvider;
 import net.minecraft.inventory.container.WorkbenchContainer;
@@ -58,6 +60,22 @@ public class ChessBoardBlock extends HorizontalBlock {
 			}
 		}
 	}
+	
+	   public void onReplaced(BlockState state, World worldIn, BlockPos pos, BlockState newState, boolean isMoving) {
+		      if (state.getBlock() != newState.getBlock()) {
+		         TileEntity tileentity = worldIn.getTileEntity(pos);
+		         if (tileentity instanceof ChessBoardTile) {
+		        	 List<ItemStack> list = ((ChessBoardTile)tileentity).getInventoryContents();
+		        	 list.forEach((stack) -> {
+			        	 InventoryHelper.spawnItemStack(worldIn, pos.getX(), pos.getY(), pos.getZ(), stack);
+		        	 });
+		        	 
+		        	 worldIn.updateComparatorOutputLevel(pos, this);
+		         }
+
+		         super.onReplaced(state, worldIn, pos, newState, isMoving);
+		      }
+		   }
 	
 	@Override
 	public void addInformation(ItemStack stack, IBlockReader worldIn, List<ITextComponent> tooltip, ITooltipFlag flagIn) {

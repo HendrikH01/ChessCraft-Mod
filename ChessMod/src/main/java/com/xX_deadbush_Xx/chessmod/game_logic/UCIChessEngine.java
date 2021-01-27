@@ -14,25 +14,14 @@ import java.util.function.Consumer;
 
 public class UCIChessEngine {
 	
-	protected ExecutorService executor;
-    private final BufferedReader input;
-    private final BufferedWriter output;
-    private final Process process;
+	protected final ExecutorService executor;
+    private BufferedReader input;
+    private  BufferedWriter output;
+    private Process process;
 
 	public UCIChessEngine() throws Exception {
-        try {
-            process = Runtime.getRuntime().exec(getPath());
-            input = new BufferedReader(new InputStreamReader(process.getInputStream()));
-            output = new BufferedWriter(new OutputStreamWriter(process.getOutputStream()));
-            this.executor = Executors.newSingleThreadExecutor();
-            
-            sendAndRead("uci", "uciok", null);
-			waitUntilReady();
-			send("setoption name UCI_LimitStrength value true");
-			
-        } catch (IOException e) {
-            throw new Exception("Exception while trying to initialize chess engine: ", e);
-        }
+        this.executor = Executors.newSingleThreadExecutor();
+		this.start();
 	}
 	
 	protected void send(String command) {
@@ -60,7 +49,6 @@ public class UCIChessEngine {
 				
 				if (line != null) {
 					lines.add(line);
-
 					if (line.startsWith(cancel)) {
 						if (callback != null)
 							callback.accept(lines);
@@ -74,7 +62,28 @@ public class UCIChessEngine {
 			e.printStackTrace();
 		}
     }
-	
+
+    protected boolean isAlive() {
+    	return process.isAlive();
+    }
+    
+    protected void start() {
+        try {
+			process = Runtime.getRuntime().exec(getPath());
+	        input = new BufferedReader(new InputStreamReader(process.getInputStream()));
+	        output = new BufferedWriter(new OutputStreamWriter(process.getOutputStream()));
+	        
+	        sendAndRead("uci", "uciok", null);
+			waitUntilReady();
+			send("setoption name Skill_Level value 20");
+			waitUntilReady();
+			send("setoption name UCI_LimitStrength value true");
+			
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+    }
+    
 	protected void waitUntilReady() {
 		try {
 			send("isready");

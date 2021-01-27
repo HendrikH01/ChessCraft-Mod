@@ -43,21 +43,18 @@ public class ServerStartPlayingPacket {
 				if(player.openContainer instanceof ChessBoardContainer && player.openContainer != null) {
 					ChessBoardContainer container = (ChessBoardContainer) player.openContainer;
 					
-					
 					if(container.getBoard().validatePosition()) {
 						container.tile.playing = true;
 						container.tile.challenger = Optional.of(msg.challenger);
 						container.setMode(Mode.PLAYING);
-
-						if(msg.playingcomputer) {
-							container.tile.isPlayingComputer = true;
-							
-							if(container.tile.challengerColor != container.getBoard().toPlay) {
-								//computer makes first move
-								container.makeComputerMove();
-							}
-						} else {
+						if(Minecraft.getInstance().currentScreen != null && Minecraft.getInstance().currentScreen instanceof ChessBoardScreen) {
+							((ChessBoardScreen)Minecraft.getInstance().currentScreen).updateMode(Mode.PLAYING);
+						}
+						
+						
+						if(!msg.playingcomputer) {
 							container.tile.waitingForChallenged = true;
+							container.tile.isPlayingComputer = false;
 							
 							if(!player.getUniqueID().equals(msg.challenger)) {
 								if(Minecraft.getInstance().currentScreen != null && Minecraft.getInstance().currentScreen instanceof ChessBoardScreen) {
@@ -67,6 +64,9 @@ public class ServerStartPlayingPacket {
 									display.challenger = container.tile.getWorld().getPlayerByUuid(msg.challenger).getName().getString();
 								}
 							}
+						} else {
+							container.tile.isPlayingComputer = true;
+							container.tile.waitingForChallenged = false;
 						}
 					} else if(Minecraft.getInstance().currentScreen != null && Minecraft.getInstance().currentScreen instanceof ChessBoardScreen) {
 						((ChessBoardScreen)Minecraft.getInstance().currentScreen).displayInvalidPosError();

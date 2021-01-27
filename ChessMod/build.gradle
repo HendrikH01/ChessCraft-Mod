@@ -15,7 +15,7 @@ apply plugin: 'net.minecraftforge.gradle'
 apply plugin: 'eclipse'
 apply plugin: 'maven-publish'
 
-version = '1.0'
+version = '1.15.2-0.0.0.1-beta'
 group = 'com.xX_deadbush_Xx.chess'
 archivesBaseName = 'chessmod'
 

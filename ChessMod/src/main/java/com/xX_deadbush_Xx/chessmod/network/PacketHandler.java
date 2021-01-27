@@ -35,12 +35,13 @@ public class PacketHandler {
 		INSTANCE.registerMessage(id++, ClientPromotionPacket.class, ClientPromotionPacket::encode, ClientPromotionPacket::decode, ClientPromotionPacket::handle);
 		INSTANCE.registerMessage(id++, ClientRequestTimePacket.class, ClientRequestTimePacket::encode, ClientRequestTimePacket::decode, ClientRequestTimePacket::handle);
 		INSTANCE.registerMessage(id++, ClientStartPlayingPacket.class, ClientStartPlayingPacket::encode, ClientStartPlayingPacket::decode, ClientStartPlayingPacket::handle);
+		INSTANCE.registerMessage(id++, ClientMakeMovePacket.class, ClientMakeMovePacket::encode, ClientMakeMovePacket::decode, ClientMakeMovePacket::handle);
 
 		
 		//SERVER TO CLIENT
+		INSTANCE.registerMessage(id++, ServerStartPlayingPacket.class, ServerStartPlayingPacket::encode, ServerStartPlayingPacket::decode, ServerStartPlayingPacket::handle);
 		INSTANCE.registerMessage(id++, ServerSetChessBoardTabPacket.class, ServerSetChessBoardTabPacket::encode, ServerSetChessBoardTabPacket::decode, ServerSetChessBoardTabPacket::handle);
 		INSTANCE.registerMessage(id++, ServerChessBoardUpdatePacket.class, ServerChessBoardUpdatePacket::encode, ServerChessBoardUpdatePacket::decode, ServerChessBoardUpdatePacket::handle);
-		INSTANCE.registerMessage(id++, ServerMovePiecePacket.class, ServerMovePiecePacket::encode, ServerMovePiecePacket::decode, ServerMovePiecePacket::handle);
 		INSTANCE.registerMessage(id++, ServerSetCastlingOptionPacket.class, ServerSetCastlingOptionPacket::encode, ServerSetCastlingOptionPacket::decode, ServerSetCastlingOptionPacket::handle);
 		INSTANCE.registerMessage(id++, ServerSetTimePacket.class, ServerSetTimePacket::encode, ServerSetTimePacket::decode, ServerSetTimePacket::handle);
 		INSTANCE.registerMessage(id++, ServerSetStrengthPacket.class, ServerSetStrengthPacket::encode, ServerSetStrengthPacket::decode, ServerSetStrengthPacket::handle);
@@ -49,7 +50,7 @@ public class PacketHandler {
 		INSTANCE.registerMessage(id++, ServerPlayerDefeatedPacket.class, ServerPlayerDefeatedPacket::encode, ServerPlayerDefeatedPacket::decode, ServerPlayerDefeatedPacket::handle);
 		INSTANCE.registerMessage(id++, ServerTimeReponsePacket.class, ServerTimeReponsePacket::encode, ServerTimeReponsePacket::decode, ServerTimeReponsePacket::handle);
 		INSTANCE.registerMessage(id++, ServerChessDrawPacket.class, ServerChessDrawPacket::encode, ServerChessDrawPacket::decode, ServerChessDrawPacket::handle);
-		INSTANCE.registerMessage(id++, ServerStartPlayingPacket.class, ServerStartPlayingPacket::encode, ServerStartPlayingPacket::decode, ServerStartPlayingPacket::handle);
+		INSTANCE.registerMessage(id++, ServerMakeMovePacket.class, ServerMakeMovePacket::encode, ServerMakeMovePacket::decode, ServerMakeMovePacket::handle);
 
 	}
 
@@ -76,8 +77,9 @@ public class PacketHandler {
 		}
 	}
 
-	public static void sendTo(ServerPlayerEntity playerMP, Object toSend) {
-		INSTANCE.sendTo(toSend, playerMP.connection.getNetworkManager(), NetworkDirection.PLAY_TO_CLIENT);
+	public static void sendTo(ServerPlayerEntity player, Object toSend) {
+		if(player != null)
+			INSTANCE.sendTo(toSend, player.connection.getNetworkManager(), NetworkDirection.PLAY_TO_CLIENT);
 	}
 
 	public static void sendToServer(World worldIn, Object toSend) {

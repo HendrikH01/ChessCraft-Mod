@@ -50,7 +50,8 @@ public class ChessBoardSquareSlot extends ToggleableSlot {
 		MOVED(0x8fE5D400),
 		VISIBLE(0x00000000),
 		ATTACKING(0xffE87F45),
-		IN_CHECK(0xffD85D5E);
+		IN_CHECK(0xffD85D5E), 
+		HINT(0x8F17E4B5);
 
 		public final int color;
 

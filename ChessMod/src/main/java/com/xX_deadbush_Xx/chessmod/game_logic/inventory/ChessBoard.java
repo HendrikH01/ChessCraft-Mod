@@ -140,7 +140,7 @@ public class ChessBoard implements IItemHandler {
 	public void readCompound(CompoundNBT compound) {
 		if(compound.contains("wlongcastle")) this.canCastle[0] = compound.getBoolean("wlongcastle");
 		if(compound.contains("wshortcastle")) this.canCastle[1] = compound.getBoolean("wshortcastle");
-		if(compound.contains("bshortcastle")) this.canCastle[2] = compound.getBoolean("blongcastle");
+		if(compound.contains("blongcastle")) this.canCastle[2] = compound.getBoolean("blongcastle");
 		if(compound.contains("bshortcastle")) this.canCastle[3] = compound.getBoolean("bshortcastle");
 		if(compound.contains("color")) this.toPlay= compound.getBoolean("color") ? PieceColor.BLACK : PieceColor.WHITE;
 

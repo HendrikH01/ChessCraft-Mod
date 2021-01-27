@@ -14,15 +14,9 @@ import net.minecraft.util.math.MathHelper;
 public class ChallengeDisplay extends Button {
 
 	public String challenger;
-	private ChessBoardContainer container;
 
-	public ChallengeDisplay(ChessBoardContainer container, int widthIn, int heightIn) {
-		super(widthIn, heightIn, 73, 62, "", (b) -> {
-			b.active = false;
-			b.visible = false;
-		});
-		
-		this.container = container;
+	public ChallengeDisplay(int widthIn, int heightIn) {
+		super(widthIn, heightIn, 73, 62, "", (b) -> {});
 	}
 
 

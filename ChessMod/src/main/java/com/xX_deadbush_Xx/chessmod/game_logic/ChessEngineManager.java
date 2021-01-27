@@ -5,6 +5,8 @@ import java.util.List;
 import java.util.Random;
 import java.util.function.Consumer;
 
+import com.xX_deadbush_Xx.chessmod.ChessMod;
+
 public class ChessEngineManager extends UCIChessEngine {
 	
 	private static ChessEngineManager INSTANCE;
@@ -24,7 +26,8 @@ public class ChessEngineManager extends UCIChessEngine {
 	}
 	
 	public static void getLegalMoves(String fen, Consumer<List<String>> callback) {
- 		INSTANCE.executor.execute(new Runnable() {
+ 
+		INSTANCE.executor.execute(new Runnable() {
 
 			@Override
 			public void run() {
@@ -49,75 +52,99 @@ public class ChessEngineManager extends UCIChessEngine {
 				} catch (IOException e) {
 					e.printStackTrace();
 				}
+				
+				if(!INSTANCE.isAlive()) {
+					ChessMod.LOGGER.fatal("Chess engine crashed while trying to find the legal moves! Restarting now. FEN-string: " + fen);
+					INSTANCE.start();
+				}
 			}
 		});
 	}
 	
-	public static void getNextMove(String fen, int strength, Consumer<String> callback) {
-		
+	public static void getNextMove(String fen, final int strength, Consumer<String> callback) {
+				
 		int elo;
-		float randomchance = 0.0f;
+		final int depth;
+		final float randomchance;
 		
 		switch(strength) {
 		case 1: {
-			elo = 100;
-			randomchance = 0.0f;
+			elo = 1350;
+			randomchance = 1.0f;
+			depth = 1;
 			break;
 		}
 		case 2: {
-			elo = 300;
+			elo = 1350;
 			randomchance = 0.15f;
+			depth = 1;
 			break;
 		}
 		case 3: {
-			elo = 600;
+			elo = 1350;
 			randomchance = 0.05f;
+			depth = 1;
 			break;
 		}
 		case 4: {
-			elo = 1000;
+			elo = 1350;
+			depth = 1;
+			randomchance = 0.0f;
 			break;
 		}
 		case 5: {
-			elo = 1300;
+			elo = 1500;
+			depth = 3;
+			randomchance = 0.0f;
 			break;
 		}
 		case 6: {
-			elo = 1500;
+			elo = 1600;
+			depth = 5;
+			randomchance = 0.0f;
 			break;
 		}
 		case 7: {
 			elo = 1700;
+			depth = 8;
+			randomchance = 0.0f;
 			break;
 		}
 		case 8: {
 			elo = 1900;
+			depth = 10;
+			randomchance = 0.0f;
 			break;
 		}
 		case 9: {
 			elo = 2200;
+			depth = 16;
+			randomchance = 0.0f;
 			break;
 		}
 		default: {
-			elo = 2500;
+			elo = 2800;
+			depth = 8;
+			randomchance = 0.0f;
 			break;
 		}
-		}
-		
-		if(randomchance != 0 && INSTANCE.rand.nextFloat() < randomchance) {
-			randomMove(fen, callback);
-			try {
-				Thread.sleep(1200);
-			} catch (InterruptedException e) {
-				e.printStackTrace();
-			}
-			return;
 		}
 		
 		INSTANCE.executor.execute(new Runnable() {
  			
 			@Override
 			public void run() {
+				
+				if(randomchance != 0 && INSTANCE.rand.nextFloat() < randomchance) {
+					randomMove(fen, callback);
+					try {
+						Thread.sleep(1600);
+					} catch (InterruptedException e) {
+						e.printStackTrace();
+					}
+					return;
+				}
+				
 				INSTANCE.waitUntilReady();
 				
 				INSTANCE.send("setoption name UCI_Elo value " + elo);
@@ -127,9 +154,10 @@ public class ChessEngineManager extends UCIChessEngine {
 				INSTANCE.waitUntilReady();
 				
 				try {
-					INSTANCE.sendAndRead("go bestmove depth 1", "bestmove", (response) -> {
+					INSTANCE.sendAndRead("go bestmove depth " + depth, "bestmove", (response) -> {
+						
 						try {
-							Thread.sleep(1200);
+							Thread.sleep(1600);
 						} catch (InterruptedException e) {
 							e.printStackTrace();
 						}
@@ -143,10 +171,16 @@ public class ChessEngineManager extends UCIChessEngine {
 				} catch (IOException e) {
 					e.printStackTrace();
 				}
+				
+				if(!INSTANCE.isAlive()) {
+					ChessMod.LOGGER.fatal("Chess engine crashed while trying to find the best move! Restarting now. FEN-string: " + fen + ", set strength: " + strength);
+					INSTANCE.start();
+				}
 			}
  		});
 	}
 	
+
 	private static void randomMove(String fen, Consumer<String> callback) {
 		getLegalMoves(fen, (moves) -> {
 			if(!moves.isEmpty())

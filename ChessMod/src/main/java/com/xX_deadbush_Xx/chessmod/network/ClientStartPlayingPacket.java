@@ -4,6 +4,7 @@ import java.util.Optional;
 import java.util.function.Supplier;
 
 import com.ibm.icu.math.MathContext;
+import com.xX_deadbush_Xx.chessmod.ChessMod;
 import com.xX_deadbush_Xx.chessmod.client.ChessBoardScreen;
 import com.xX_deadbush_Xx.chessmod.game_logic.ChessBoardContainer;
 
@@ -34,6 +35,7 @@ public class ClientStartPlayingPacket {
 
 			@Override
 			public void run() {
+								
 				PlayerEntity sender = context.getSender();
 				 
 				if(sender.openContainer instanceof ChessBoardContainer && sender.openContainer != null) {
@@ -47,6 +49,7 @@ public class ClientStartPlayingPacket {
 							container.tile.isPlayingComputer = true;
 						} else {
 							container.tile.waitingForChallenged = true;
+							container.tile.isPlayingComputer = false;
 						}
 					}
 				}

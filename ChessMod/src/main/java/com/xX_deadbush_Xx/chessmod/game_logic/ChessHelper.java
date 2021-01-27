@@ -2,6 +2,7 @@ package com.xX_deadbush_Xx.chessmod.game_logic;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.function.Consumer;
 
 import javax.annotation.Nullable;
@@ -19,43 +20,12 @@ import net.minecraft.util.math.BlockPos;
 public class ChessHelper {
 
 	public static final List<String> LETTERS = ImmutableList.of("a", "b", "c", "d", "e", "f", "g", "h"); 
-	
-	@SuppressWarnings("resource")
-	public static void executeMove(ChessBoardContainer container, int first, int second, @Nullable Runnable callback) {
-		getLegalMoves(container, container.getBoard().toPlay, moves -> {
-			try {
-				if(moves.contains(Pair.of(first, second))) {
-					executeMoveRaw(container, first, second, "");
-					
-					ChessPiece moved = (ChessPiece) container.getSlot(second).getStack().getItem();
-					if(moved.type == ChessPieceType.PAWN) {
-						if(getY(second) == 0 && moved.color == PieceColor.WHITE 
-								|| getY(second) == 7 && moved.color == PieceColor.BLACK) {
-							//promotion
-							container.tile.waitingForPromotion = true;
-							if(container.tile.getWorld().isRemote) {
-								if(Minecraft.getInstance().currentScreen != null && Minecraft.getInstance().currentScreen instanceof ChessBoardScreen) {
-									((ChessBoardScreen)Minecraft.getInstance().currentScreen).updateMode(container.getMode());
-								}
-							}
-						}
-					}
-					
-					if(callback != null) {
-						callback.run();
-					}
-				}
-			}
-			catch(Exception e) {
-				e.printStackTrace();
-			}
-		});
-	}
 
-	public static void executeMoveRaw(ChessBoardContainer container, int first, int second, String piece) {
+
+	public static void executeMove(ChessBoardContainer container, int first, int second, String piece) {
 		//detect castle, double pawn move and enpassant
 		if(!container.getSlot(first).getHasStack()) return;
-		
+
 		ChessPiece moved = (ChessPiece) container.getSlot(first).getStack().getItem();
 		ItemStack captured = container.getBoard().movePieceTo(container, first, second);
 		container.getBoard().enPassantSquare = -1;
@@ -123,7 +93,7 @@ public class ChessHelper {
 					if(container.tile.getInventory().getStackInSlot(color.ordinal() * 6 + type.ordinal()).isEmpty()) {
 						//must wait
 						container.tile.computerPromotionPiece = id;
-						container.tile.waitingForPromotion = true;
+						container.tile.promotionColor = Optional.of(color);
 					} else {
 						ItemStack promoted = container.tile.getInventory().getStackInSlot(color.ordinal() * 6 + type.ordinal()).copy();
 						container.tile.getInventory().getStackInSlot(color.ordinal() * 6 + type.ordinal()).shrink(1);

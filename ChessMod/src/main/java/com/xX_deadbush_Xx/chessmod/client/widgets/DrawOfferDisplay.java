@@ -1,5 +1,7 @@
 package com.xX_deadbush_Xx.chessmod.client.widgets;
 
+import java.util.UUID;
+
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.xX_deadbush_Xx.chessmod.client.ChessBoardScreen;
 import com.xX_deadbush_Xx.chessmod.game_logic.ChessBoardContainer;
@@ -9,44 +11,37 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.widget.button.Button;
 import net.minecraft.util.math.MathHelper;
 
-public class GameEndMessageDisplay extends Button {
+public class DrawOfferDisplay extends Button {
 
-	public PieceColor winningColor;
-	public String title = "";
-	public String reason = "";
+	public String challenger;
 
-	public GameEndMessageDisplay(int widthIn, int heightIn) {
-		super(widthIn, heightIn, 61, 62, "", (b) -> {});
+	public DrawOfferDisplay(int widthIn, int heightIn) {
+		super(widthIn, heightIn, 73, 62, "", (b) -> {
+			b.active = false;
+			b.visible = false;
+		});
 	}
 
 
 	@SuppressWarnings("resource")
 	@Override
 	public void renderButton(int p_renderButton_1_, int p_renderButton_2_, float p_renderButton_3_) {
+		if(challenger == null) return;
 		RenderSystem.color4f(1.0F, 1.0F, 1.0F, 1.0F);
 		Minecraft.getInstance().getTextureManager().bindTexture(ChessBoardScreen.TEX_ICONS);
 		
-		int x = 186;
-		
-		if(title.equals("YOU WON") || title.equals("YOU LOST")) {
-			
-			if(this.winningColor == PieceColor.BLACK) {
-				x = 64;
-			} else {
-				x = 125;
-			}
-		}
-		int y = 114;
+		int x = 137;
+		int y = 176;
 		
 		//bg
-		this.blit(this.x, this.y, x, y, 61, 62);
+		this.blit(this.x, this.y, x, y, 73, 62);
 		
 		int c = getFGColor();
-		
-	    Minecraft.getInstance().fontRenderer.drawString(title, this.x + 31 - Minecraft.getInstance().fontRenderer.getStringWidth(title) / 2, this.y + 7, c | MathHelper.ceil(this.alpha * 255.0F) << 24);
 		RenderSystem.scaled(0.5, 0.5, 0.5);
-		
-	    Minecraft.getInstance().fontRenderer.drawString(reason, this.x * 2 + 14, this.y * 2 + 41, c | MathHelper.ceil(this.alpha * 255.0F) << 24);
+	    Minecraft.getInstance().fontRenderer.drawString(challenger, 2 * this.x + (73 - Minecraft.getInstance().fontRenderer.getStringWidth(challenger)/2), 2 * this.y + 14, c | MathHelper.ceil(this.alpha * 255.0F) << 24);
+	    Minecraft.getInstance().fontRenderer.drawString("offered a draw!", 2 * this.x + 20, 2 * this.y + 25, c | MathHelper.ceil(this.alpha * 255.0F) << 24);
+
+	    Minecraft.getInstance().fontRenderer.drawString("Press 'draw' to accept.", this.x * 2 + 14, this.y * 2 + 41, c | MathHelper.ceil(this.alpha * 255.0F) << 24);
 		RenderSystem.scaled(2.0,  2.0,  2.0);
 	}
 	

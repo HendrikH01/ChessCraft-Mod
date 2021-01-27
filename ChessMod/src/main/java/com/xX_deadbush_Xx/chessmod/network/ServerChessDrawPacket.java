@@ -35,6 +35,7 @@ public class ServerChessDrawPacket {
 				PlayerEntity player = Minecraft.getInstance().player;
 				if(player.openContainer instanceof ChessBoardContainer && player.openContainer != null) {
 					((ChessBoardContainer)player.openContainer).tile.endGameInDraw(msg.reason);
+					((ChessBoardContainer)player.openContainer).tile.markDirty();
 				}
 			}
 		});
@@ -46,7 +47,8 @@ public class ServerChessDrawPacket {
 		STALEMATE("Stalemate"),
 		INSUFFICIENT("Insufficient material"),
 		REPETITION("Draw by repetition"),
-		MOVE50("50 moves without capture");
+		MOVE50("50 moves without capture"),
+		ACCEPTED("A draw was accepted");
 
 		private String msg;
 

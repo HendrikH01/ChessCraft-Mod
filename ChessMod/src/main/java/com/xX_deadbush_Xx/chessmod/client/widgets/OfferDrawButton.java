@@ -1,5 +1,7 @@
 package com.xX_deadbush_Xx.chessmod.client.widgets;
 
+import java.util.UUID;
+
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.xX_deadbush_Xx.chessmod.client.ChessBoardScreen;
 import com.xX_deadbush_Xx.chessmod.game_logic.ChessBoardContainer;
@@ -16,8 +18,18 @@ public class OfferDrawButton extends Button {
 	@SuppressWarnings("resource")
 	public OfferDrawButton(ChessBoardContainer container, int widthIn, int heightIn) {
 		super(widthIn, heightIn, 20, 20, "", (button) -> {
-			if(!container.tile.isPlayingComputer && container.tile.playing)
-				PacketHandler.sendToServer(Minecraft.getInstance().world, new ClientChessBoardUpdatePacket((byte) 2));
+			UUID own = Minecraft.getInstance().player.getUniqueID();
+			
+			if(container.tile.playing && container.tile.challenger.isPresent() && container.tile.challenged.isPresent()) {
+				if(container.tile.challengerOfferedDraw.isPresent()) {
+					if(!container.tile.challengerOfferedDraw.get() && own.equals(container.tile.challenger.get()) || own.equals(container.tile.challenged.get())) {
+						//accept
+						PacketHandler.sendToServer(Minecraft.getInstance().world, new ClientChessBoardUpdatePacket((byte) 12));
+					}
+				} else if(container.tile.isPlaying(own))
+					//offer
+					PacketHandler.sendToServer(Minecraft.getInstance().world, new ClientChessBoardUpdatePacket((byte) 2));
+			}
 		});
 		
 		this.container = container;
@@ -33,7 +45,14 @@ public class OfferDrawButton extends Button {
 		if (this.isHovered()) {
 			i += 20;
 		}
-
+		
+		UUID own = Minecraft.getInstance().player.getUniqueID();
+		if(container.tile.challengerOfferedDraw.isPresent() && container.tile.playing && container.tile.challenger.isPresent() && container.tile.challenged.isPresent()) {
+			if(!container.tile.challengerOfferedDraw.get() && own.equals(container.tile.challenger.get()) || own.equals(container.tile.challenged.get())) {
+				j += 120;
+			}
+		}
+		
 		this.blit(this.x, this.y, i, j, 20, 20);
 		
 		if(!this.container.tile.playing || this.container.tile.isPlayingComputer)

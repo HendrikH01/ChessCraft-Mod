@@ -42,7 +42,7 @@ public class ServerEngineMakeMovePacket {
 				PlayerEntity sender = Minecraft.getInstance().player;
  				if(sender.openContainer instanceof ChessBoardContainer && sender.openContainer != null) {
  					ChessBoardContainer container = (ChessBoardContainer)sender.openContainer;
- 					ChessHelper.executeMoveRaw(container, msg.first, msg.second, msg.piece);
+ 					ChessHelper.executeMove(container, msg.first, msg.second, msg.piece);
 					container.getBoard().toPlay = container.tile.challengerColor;
 
 					container.checkForMate(container.tile.challengerColor);

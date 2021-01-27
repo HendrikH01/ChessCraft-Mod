@@ -3,11 +3,13 @@ package com.xX_deadbush_Xx.chessmod;
 import org.apache.commons.lang3.tuple.Pair;
 
 import net.minecraftforge.common.ForgeConfigSpec;
+import net.minecraftforge.common.ForgeConfigSpec.BooleanValue;
+import net.minecraftforge.common.ForgeConfigSpec.ConfigValue;
 
 public class Config {
 	public static class Client {
 		
-		public final ForgeConfigSpec.ConfigValue<String> computername;
+		public final ConfigValue<String> computername;
 		
 		public Client(ForgeConfigSpec.Builder builder) {
 		this.computername = builder
@@ -26,12 +28,16 @@ public class Config {
 	}
 
 	public static class Common {
-		public final ForgeConfigSpec.BooleanValue allowHints;
+		public final BooleanValue allowHints;
+		public final BooleanValue debug;
 
 		public Common(ForgeConfigSpec.Builder builder) {
 			this.allowHints = builder
 					.comment("Should hints be allowed? default: true")
 					.define("allowhints", true);
+			this.debug = builder
+					.comment("Enable debug logging and buttons default: true")
+					.define("debug", true);
 		}
 	}
 

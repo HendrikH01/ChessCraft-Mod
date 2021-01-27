@@ -2,6 +2,7 @@ package com.xX_deadbush_Xx.chessmod.network;
 
 import java.util.function.Supplier;
 
+import com.xX_deadbush_Xx.chessmod.ChessMod;
 import com.xX_deadbush_Xx.chessmod.game_logic.ChessBoardContainer;
 
 import net.minecraft.entity.player.PlayerEntity;

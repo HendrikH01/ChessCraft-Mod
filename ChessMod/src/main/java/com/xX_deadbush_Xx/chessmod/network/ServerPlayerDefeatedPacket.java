@@ -38,6 +38,7 @@ public class ServerPlayerDefeatedPacket {
 				PlayerEntity player = Minecraft.getInstance().player;
 				if(player.openContainer instanceof ChessBoardContainer && player.openContainer != null) {
 					((ChessBoardContainer)player.openContainer).tile.endGameInWin(!msg.challengerLose, msg.reason);
+					((ChessBoardContainer)player.openContainer).tile.markDirty();
 				}
 			}
 		});
@@ -47,7 +48,7 @@ public class ServerPlayerDefeatedPacket {
 	
 	public static enum LoseReason {
 		RESIGN("Opponent resigned", "You resigned"),
-		CHECKMATE("Opponent checkmated", "Checkmate!"),
+		CHECKMATE("By checkmate", "Checkmate!"),
 		TIMEOUT("Opponent Flagged", "You ran out of time");
 
 		private String winner;

@@ -1,6 +1,0 @@
-{
-  "parent": "hocus:block/fungal_grass",
-  "textures": {
-    "layer0": "hocus:blocks/fungal_grass"
-  }
-}

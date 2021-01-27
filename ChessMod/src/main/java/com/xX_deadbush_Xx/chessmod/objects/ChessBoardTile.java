@@ -1,20 +1,26 @@
 package com.xX_deadbush_Xx.chessmod.objects;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.UUID;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
+import com.xX_deadbush_Xx.chessmod.ChessMod;
 import com.xX_deadbush_Xx.chessmod.client.ChessBoardScreen;
 import com.xX_deadbush_Xx.chessmod.game_logic.ChessBoardContainer;
+import com.xX_deadbush_Xx.chessmod.game_logic.ChessEngineManager;
 import com.xX_deadbush_Xx.chessmod.game_logic.ChessPieceType;
 import com.xX_deadbush_Xx.chessmod.game_logic.PieceColor;
 import com.xX_deadbush_Xx.chessmod.game_logic.inventory.ChessBoard;
 import com.xX_deadbush_Xx.chessmod.network.ClientRequestTimePacket;
 import com.xX_deadbush_Xx.chessmod.network.PacketHandler;
+import com.xX_deadbush_Xx.chessmod.network.ServerChessBoardUpdatePacket;
 import com.xX_deadbush_Xx.chessmod.network.ServerChessDrawPacket.DrawReason;
 import com.xX_deadbush_Xx.chessmod.network.ServerPlayerDefeatedPacket;
 import com.xX_deadbush_Xx.chessmod.network.ServerPlayerDefeatedPacket.LoseReason;
@@ -47,17 +53,22 @@ public class ChessBoardTile extends TileEntity implements INamedContainerProvide
 	private ItemStackHandler inventory = new ItemStackHandler(12);
 	public Map<UUID, PieceColor> sides = new HashMap<>();
 	public int computerStrength = 1;
+	
 	public Optional<UUID> challenger = Optional.empty();
 	public int challengerTime = 0;
 	
 	public Optional<UUID> challenged = Optional.empty();
 	public int challengedTime = 0;
 	
+	public Optional<Boolean> challengerOfferedDraw = Optional.empty();
+	
+	public Optional<PieceColor> promotionColor = Optional.empty();
+	
 	public boolean isPlayingComputer = false;
 	public PieceColor challengerColor = PieceColor.WHITE;
 	public boolean playing = false;
-	public boolean waitingForPromotion = false;
 	public boolean waitingForChallenged = false;
+	public boolean waitingForComputerMove = false;
 	public int computerPromotionPiece = -1;
 	
 	public ChessBoardTile() {
@@ -66,20 +77,25 @@ public class ChessBoardTile extends TileEntity implements INamedContainerProvide
 	}
 	
 	@Override
-	public void tick() {
-		if(this.playing && !(this.waitingForPromotion || this.waitingForChallenged)) {
+	public void tick() {		
+		if(this.playing && !(this.promotionColor.isPresent() || this.waitingForChallenged)) {
 			if(challenger.isPresent() && (challenged.isPresent() || isPlayingComputer)) {
 				if(this.challengerColor == this.board.toPlay) {
 					if(challengerTime > 0)
 						this.challengerTime--;
 					else if(challengerTime == 0 && !this.world.isRemote) {
-						this.playing = false;
-						PacketHandler.sendToNearby(this.getWorld(), this.getPos(), new ServerPlayerDefeatedPacket(false, LoseReason.TIMEOUT));
+						this.stopPlaying();
+						if(!this.isPlayingComputer)
+							PacketHandler.sendToNearby(this.getWorld(), this.getPos(), new ServerPlayerDefeatedPacket(false, LoseReason.TIMEOUT));
+						else if(challenger.isPresent()) {
+							PacketHandler.sendTo((ServerPlayerEntity) this.getWorld().getPlayerByUuid(challenger.get()), new ServerPlayerDefeatedPacket(false, LoseReason.TIMEOUT));
+							PacketHandler.sendToNearby(this.getWorld(), this.getPos(), new ServerChessBoardUpdatePacket(null, (byte)8));
+						}
 					}
 				} else if(!this.isPlayingComputer) {
 					this.challengedTime--;
 					if(challengedTime == 0 && !this.world.isRemote) {
-						this.playing = false;
+						this.stopPlaying();
 						PacketHandler.sendToNearby(this.getWorld(), this.getPos(), new ServerPlayerDefeatedPacket(true, LoseReason.TIMEOUT));
 					}
 				}
@@ -88,10 +104,10 @@ public class ChessBoardTile extends TileEntity implements INamedContainerProvide
 					PacketHandler.sendToServer(this.getWorld(), new ClientRequestTimePacket());
 				}
 			} else {
-				this.playing = false;
-				System.out.println("Error: missing chesboard data");
+				this.stopPlaying();
+				ChessMod.LOGGER.warn("Error: missing chessboard data");
 			}
-		} else if(this.playing && this.isPlayingComputer && this.waitingForPromotion) {
+		} else if(this.playing && this.isPlayingComputer && this.promotionColor.isPresent()) {
 			//computer waiting for piece
 			
 			if(computerPromotionPiece > 0 && computerPromotionPiece < 5) {
@@ -106,14 +122,37 @@ public class ChessBoardTile extends TileEntity implements INamedContainerProvide
 					for(int i = 0; i < 8; i++) {
 						if(((ChessPiece)this.board.getPieceAt(i, color == PieceColor.WHITE ? 7 : 0).getItem()).type == ChessPieceType.PAWN) {
 							this.board.setStackInSlot(i * 8 + (color == PieceColor.WHITE ? 7 : 0), promoted);
-							computerPromotionPiece = -1;
-							this.waitingForPromotion = false;
+							this.computerPromotionPiece = -1;
+							this.promotionColor = Optional.empty();
 							return;
 						}
 					}
 				}
 			}
 		}
+		
+		//computermove
+		if(this.world.isRemote && this.playing && this.isPlayingComputer && !(this.promotionColor.isPresent() || this.waitingForComputerMove)) {
+			if(this.challengerColor != this.board.toPlay && this.challenger.isPresent() && this.challenger.get().equals(Minecraft.getInstance().player.getUniqueID())) {
+				
+				if(Minecraft.getInstance().player.openContainer instanceof ChessBoardContainer && Minecraft.getInstance().player.openContainer != null) {
+
+					this.waitingForComputerMove = true;
+
+					((ChessBoardContainer)Minecraft.getInstance().player.openContainer).makeComputerMove(new Runnable() {
+
+						@Override
+						public void run() {
+							ChessBoardTile.this.board.toPlay = ChessBoardTile.this.challengerColor;
+						}
+					});
+				}
+			}
+		}
+	}
+	
+	public void stopPlaying() {
+		this.playing = false;
 	}
 	
 	public boolean isPlaying(UUID player) {
@@ -144,29 +183,42 @@ public class ChessBoardTile extends TileEntity implements INamedContainerProvide
 	
 	@SuppressWarnings("resource")
 	public void endGameInWin(boolean challengerWon, LoseReason reason) {
-		this.playing = false;
-
-		
-		if(this.world.isRemote) {
-			if(Minecraft.getInstance().currentScreen instanceof ChessBoardScreen && Minecraft.getInstance().currentScreen != null) {
-				ChessBoardScreen screen = (ChessBoardScreen) Minecraft.getInstance().currentScreen;
-				screen.gameEndDisplay.active = true;
-				screen.gameEndDisplay.visible = true;
-				screen.gameEndDisplay.title = challengerWon ^ Minecraft.getInstance().player.getUniqueID().equals(this.challenger.get()) ? "YOU WON" : "YOU LOST";
-				screen.gameEndDisplay.reason = challengerWon ^ Minecraft.getInstance().player.getUniqueID().equals(this.challenger.get()) ? reason.winnerMessage() : reason.loserMessage();
-				screen.gameEndDisplay.winningColor = challengerWon ? this.challengerColor : this.challengerColor.getOpposite();
+		stopPlaying();
+		this.isPlayingComputer = false;
+		if(reason == LoseReason.TIMEOUT) {
+			if(challengerWon) {
+				this.challengerTime = 0;
+			} else {
+				this.challengedTime = 0;
 			}
+		}
+		
+		try {
+			if(this.world.isRemote) {
+				if(Minecraft.getInstance().currentScreen instanceof ChessBoardScreen && Minecraft.getInstance().currentScreen != null) {
+					ChessBoardScreen screen = (ChessBoardScreen) Minecraft.getInstance().currentScreen;
+					screen.gameEndDisplay.active = true;
+					screen.gameEndDisplay.visible = true;
+					screen.gameEndDisplay.title = challengerWon ^ Minecraft.getInstance().player.getUniqueID().equals(this.challenger.get()) ? "YOU WON" : "YOU LOST";					
+					screen.gameEndDisplay.reason = challengerWon ^ Minecraft.getInstance().player.getUniqueID().equals(this.challenger.get()) ? reason.winnerMessage() : reason.loserMessage();
+					screen.gameEndDisplay.winningColor = challengerWon ? this.challengerColor : this.challengerColor.getOpposite();
+				}
+			}
+		} catch(NoSuchElementException e) {
+			e.printStackTrace();
 		}
 		
 		this.challenged = Optional.empty();
 		this.challenger = Optional.empty();
+		this.challengerOfferedDraw = Optional.empty();
+		this.waitingForComputerMove = false;
+		this.waitingForChallenged = false;
+		this.promotionColor = Optional.empty();
 	}
 	
 	@SuppressWarnings("resource")
 	public void endGameInDraw(DrawReason reason) {
-		this.playing = false;
-		this.challenged = Optional.empty();
-		this.challenger = Optional.empty();
+		stopPlaying();
 		this.isPlayingComputer = false;
 		
 		if(this.world.isRemote) {
@@ -178,6 +230,13 @@ public class ChessBoardTile extends TileEntity implements INamedContainerProvide
 				screen.gameEndDisplay.reason = reason.message();
 			}
 		}
+		
+		this.challenged = Optional.empty();
+		this.challenger = Optional.empty();
+		this.challengerOfferedDraw = Optional.empty();
+		this.waitingForComputerMove = false;
+		this.waitingForChallenged = false;
+		this.promotionColor = Optional.empty();
 	}
 	
 	@Override
@@ -192,14 +251,21 @@ public class ChessBoardTile extends TileEntity implements INamedContainerProvide
 			this.playing = compound.getBoolean("playing");
 		if(compound.contains("playingcomputer")) 
 			this.isPlayingComputer = compound.getBoolean("playingcomputer");
-		if(compound.contains("promoting")) 
-			this.waitingForPromotion = compound.getBoolean("promoting");
 		if(compound.contains("waitingforchallenged")) 
 			this.waitingForChallenged = compound.getBoolean("waitingforchallenged");
+		if(compound.contains("waitingforchallenged")) 
+			this.waitingForComputerMove = compound.getBoolean("waitingforcomputer");
+		
 		if(compound.contains("challenger")) 
 			this.challenger = Optional.of(NBTUtil.readUniqueId(compound.getCompound("challenger")));
+		
 		if(!isPlayingComputer && compound.contains("challenged")) 
 			this.challenged = Optional.of(NBTUtil.readUniqueId(compound.getCompound("challenged")));
+		
+		if(compound.contains("promoting")) 
+			this.promotionColor = Optional.of(compound.getBoolean("promoting") ? PieceColor.WHITE : PieceColor.BLACK);
+		else this.promotionColor = Optional.empty();
+		
 		if(compound.contains("challengertime")) 
 			this.challengerTime = compound.getInt("challengertime");
 		if(compound.contains("challengedtime")) 
@@ -217,14 +283,17 @@ public class ChessBoardTile extends TileEntity implements INamedContainerProvide
 		compound.put("board", this.board.getCompound());
 		compound.putBoolean("playingcomputer", this.isPlayingComputer);
 		compound.putBoolean("playing", this.playing );
-		compound.putBoolean("promoting", this.waitingForPromotion);
 		compound.putBoolean("waitingforchallenged", this.waitingForChallenged);
-		
+		compound.putBoolean("waitingforcomputer", this.waitingForComputerMove);
+
 		if (this.challenger.isPresent())
 			compound.put("challenger", NBTUtil.writeUniqueId(this.challenger.get()));
 		
-		if (!isPlayingComputer && this.challenged.isPresent())
+		if (isPlayingComputer && this.challenged.isPresent())
 			compound.put("challenged", NBTUtil.writeUniqueId(this.challenged.get()));
+		
+		if (this.promotionColor.isPresent())
+			compound.putBoolean("promoting", this.promotionColor.get() == PieceColor.WHITE);
 		
 		compound.putInt("challengertime", this.challengerTime);
 		compound.putInt("challengedtime", this.challengedTime);
@@ -237,20 +306,31 @@ public class ChessBoardTile extends TileEntity implements INamedContainerProvide
 	@Nullable
 	@Override
 	 public SUpdateTileEntityPacket getUpdatePacket() {
-		CompoundNBT comp = new CompoundNBT();
-		this.write(comp);
-		return new SUpdateTileEntityPacket(this.pos, 69, comp); //nice
+		CompoundNBT tag = new CompoundNBT();
+		this.write(tag);
+		
+		if (this.challengerOfferedDraw.isPresent())
+			tag.putBoolean("offeredDraw", this.challengerOfferedDraw.get());
+		
+		return new SUpdateTileEntityPacket(this.pos, 69, tag); //nice
 	}
 	
 	@Override
 	public void onDataPacket(NetworkManager net, SUpdateTileEntityPacket pkt) {
 		this.read(pkt.getNbtCompound());
+		
+		if(pkt.getNbtCompound().contains("offeredDraw")) 
+			this.challengerOfferedDraw = Optional.of(pkt.getNbtCompound().getBoolean("offeredDraw"));
 	}
 	
 	@Override
 	public CompoundNBT getUpdateTag() {
 	    CompoundNBT tag = new CompoundNBT();
 	    this.write(tag);
+	    
+		if (this.challengerOfferedDraw.isPresent())
+			tag.putBoolean("offeredDraw", this.challengerOfferedDraw.get());
+		
 	    return tag;
 	}
 	
@@ -269,6 +349,7 @@ public class ChessBoardTile extends TileEntity implements INamedContainerProvide
 		return CapabilityItemHandler.ITEM_HANDLER_CAPABILITY.orEmpty(cap, LazyOptional.of(() -> inventory));
 	}
 	
+	
 	public ChessBoard getBoard() {
 		return board;
 	}
@@ -285,5 +366,18 @@ public class ChessBoardTile extends TileEntity implements INamedContainerProvide
 	@Override
 	public ITextComponent getDisplayName() {
 		return new StringTextComponent("Chessboard");
+	}
+
+	public List<ItemStack> getInventoryContents() {
+		List<ItemStack> list = new ArrayList<>();
+		for(int i = 0; i < 64; i++) {
+			list.add(this.board.getStackInSlot(i));
+		}
+		
+		for(int i = 0; i < this.inventory.getSlots(); i++) {
+			list.add(this.inventory.getStackInSlot(i));
+		}
+		
+		return list;
 	}
 }

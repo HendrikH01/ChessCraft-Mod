@@ -1,5 +1,7 @@
 package com.xX_deadbush_Xx.chessmod.objects;
 
+import java.util.HashSet;
+
 import com.xX_deadbush_Xx.chessmod.ChessMod;
 import com.xX_deadbush_Xx.chessmod.game_logic.ChessBoardContainer;
 import com.xX_deadbush_Xx.chessmod.game_logic.ChessPieceType;
@@ -11,7 +13,12 @@ import net.minecraft.block.material.Material;
 import net.minecraft.inventory.container.ContainerType;
 import net.minecraft.item.BlockItem;
 import net.minecraft.item.Item;
+import net.minecraft.item.ItemTier;
+import net.minecraft.item.SwordItem;
+import net.minecraft.item.ToolItem;
 import net.minecraft.tileentity.TileEntityType;
+import net.minecraft.util.ResourceLocation;
+import net.minecraft.util.SoundEvent;
 import net.minecraftforge.common.extensions.IForgeContainerType;
 import net.minecraftforge.fml.RegistryObject;
 import net.minecraftforge.registries.DeferredRegister;
@@ -22,7 +29,9 @@ public class ModRegistry {
 	public static final DeferredRegister<Block> BLOCKS = new DeferredRegister<>(ForgeRegistries.BLOCKS, ChessMod.MOD_ID);
 	public static final DeferredRegister<TileEntityType<?>> TILES = new DeferredRegister<>(ForgeRegistries.TILE_ENTITIES, ChessMod.MOD_ID);
 	public static final DeferredRegister<ContainerType<?>> CONTAINERS = new DeferredRegister<>(ForgeRegistries.CONTAINERS, ChessMod.MOD_ID);
+	public static final DeferredRegister<SoundEvent> SOUNDS = new DeferredRegister<>(ForgeRegistries.SOUND_EVENTS, ChessMod.MOD_ID);
 
+	
 	//BLOCKS
 	public static final RegistryObject<Block> CHESS_BOARD = BLOCKS.register("chess_board", () -> new ChessBoardBlock(Block.Properties.create(Material.WOOD).notSolid().harvestLevel(1).hardnessAndResistance(1.0F, 5.0F).sound(SoundType.WOOD)));
 
@@ -42,12 +51,15 @@ public class ModRegistry {
 	public static final RegistryObject<Item> BLACK_KING = ITEMS.register("black_king", () -> new ChessPiece(ChessPieceType.KING, PieceColor.BLACK, new Item.Properties().group(ChessMod.GROUP)));
 	
 	public static final RegistryObject<Item> CHESS_BOARD_ITEM = ITEMS.register("chess_board_item", () -> new BlockItem(CHESS_BOARD.get(), new Item.Properties().group(ChessMod.GROUP)));
-	public static final RegistryObject<Item> CARVING_KNIFE = ITEMS.register("carving_knife", () -> new Item(new Item.Properties().group(ChessMod.GROUP)));
+	public static final RegistryObject<Item> CARVING_KNIFE = ITEMS.register("carving_knife", () -> new SwordItem(ItemTier.IRON, 1, -1.5f, new Item.Properties().maxDamage(32).group(ChessMod.GROUP)));
 
-	
 	//TEs
 	public static final RegistryObject<TileEntityType<ChessBoardTile>> CHESS_BOARD_TILE = TILES.register("chess_board_tile", () -> TileEntityType.Builder.create(ChessBoardTile::new, CHESS_BOARD.get()).build(null));
 
 	//CONTAINERS
 	public static final RegistryObject<ContainerType<ChessBoardContainer>> CHESS_BOARD_CONTAINER = CONTAINERS.register("chess_board_container", () -> IForgeContainerType.create(ChessBoardContainer::new));
+
+	//SOUNDS
+	public static final RegistryObject<SoundEvent> MOVE_PIECE = SOUNDS.register("chess.move_piece", () -> new SoundEvent(new ResourceLocation(ChessMod.MOD_ID, "chess.move_piece")));
+
 }

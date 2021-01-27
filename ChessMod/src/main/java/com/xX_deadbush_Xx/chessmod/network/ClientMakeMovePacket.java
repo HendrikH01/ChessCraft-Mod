@@ -3,54 +3,60 @@ package com.xX_deadbush_Xx.chessmod.network;
 import java.util.function.Supplier;
 
 import com.mojang.datafixers.util.Pair;
+import com.xX_deadbush_Xx.chessmod.ChessMod;
 import com.xX_deadbush_Xx.chessmod.game_logic.ChessBoardContainer;
 import com.xX_deadbush_Xx.chessmod.game_logic.ChessHelper;
+import com.xX_deadbush_Xx.chessmod.game_logic.PieceColor;
 
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.network.PacketBuffer;
 import net.minecraftforge.fml.network.NetworkEvent;
 
-public class ClientEngineMakeMovePacket {
+public class ClientMakeMovePacket {
 	private int first;
 	private int second;
-	private String piece; //promotion
+	private PieceColor playing;
 	
-	public ClientEngineMakeMovePacket(int first, int second, String piece) {
+	public ClientMakeMovePacket(PieceColor playing, int first, int second) {
 		this.first = first;
 		this.second = second;
-		this.piece = piece;
+		this.playing = playing;
 	}
 
-	public static void encode(ClientEngineMakeMovePacket msg, PacketBuffer buf) {
+	public static void encode(ClientMakeMovePacket msg, PacketBuffer buf) {
+		buf.writeBoolean(msg.playing == PieceColor.WHITE);
 		buf.writeInt(msg.first);
 		buf.writeInt(msg.second);
-		buf.writeString(msg.piece);
 	}
 
-	public static ClientEngineMakeMovePacket decode(PacketBuffer buf) {
-		return new ClientEngineMakeMovePacket(buf.readInt(), buf.readInt(), buf.readString(2));
+	public static ClientMakeMovePacket decode(PacketBuffer buf) {
+		return new ClientMakeMovePacket(buf.readBoolean() ? PieceColor.WHITE : PieceColor.BLACK, buf.readInt(), buf.readInt());
 	}
 
-	public static void handle(ClientEngineMakeMovePacket msg, Supplier<NetworkEvent.Context> ctx) {
+	public static void handle(ClientMakeMovePacket msg, Supplier<NetworkEvent.Context> ctx) {
 		NetworkEvent.Context context = ctx.get();
 		context.enqueueWork(new Runnable() {
-
+			
 			@Override
 			public void run() {
-				System.out.println("computer move succeeded");
-
 				PlayerEntity sender = context.getSender();
 				if(sender.openContainer instanceof ChessBoardContainer && sender.openContainer != null) {
 					ChessBoardContainer container = (ChessBoardContainer) sender.openContainer;
-					ChessHelper.getLegalMoves(container, container.tile.challengerColor.getOpposite(), (moves) -> {
+					
+					if(msg.playing != container.getBoard().toPlay) {
+						return;
+					}
+					
+					ChessHelper.getLegalMoves(container, msg.playing, (moves) -> {
 						
 						if(moves.contains(Pair.of(msg.first, msg.second))) {
-							ChessHelper.executeMove(container, msg.first, msg.second, msg.piece);
-							container.getBoard().toPlay = container.tile.challengerColor;
-							container.checkForMate(container.tile.challengerColor);
+							ChessHelper.executeMove(container, msg.first, msg.second, "");
+
+							container.getBoard().toPlay = msg.playing.getOpposite();
+							container.checkForMate(msg.playing.getOpposite());
 							
 							PacketHandler.sendToNearby(sender.world, sender, new ServerChessBoardUpdatePacket(sender.getUniqueID(), (byte)11));
-							PacketHandler.sendToNearby(sender.world, sender, new ServerEngineMakeMovePacket(msg.first, msg.second, msg.piece));
+							PacketHandler.sendToNearby(sender.world, sender, new ServerMakeMovePacket(sender.getUniqueID(), msg.playing, msg.first, msg.second));
 						}
 					});
 				}

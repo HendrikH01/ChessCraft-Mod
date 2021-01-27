@@ -32,7 +32,7 @@ public class HintButton extends Button {
 
 		this.blit(this.x, this.y, i, j, 20, 20);
 		
-		if(!Config.COMMON.allowHints.get() || !this.container.tile.challenged.isPresent() || !this.container.tile.playing) {
+		if(!Config.COMMON.allowHints.get() || !this.container.tile.isPlayingComputer && this.container.tile.playing) {
 			this.blit(this.x, this.y, 0, 84, 20, 20);
 		} 
 	}

@@ -1,0 +1,22 @@
+{
+	"block.chessmod.chess_board": "Chess Board",
+	
+	"item.chessmod.chess_board_item": "Chess Board",
+	"item.chessmod.carving_knife": "Carving Knife",
+	
+	"container.chessmod.chess_board_container": "Chess Board",
+	"itemGroup.chessmod.chessmod_blocks": "Chess Board",
+	
+	"item.chessmod.white_pawn": "White Pawn",
+	"item.chessmod.white_horsey": "White Knight",
+	"item.chessmod.white_bishop": "White Bishop",
+	"item.chessmod.white_rook": "White Rook",
+	"item.chessmod.white_queen": "White Queen",
+	"item.chessmod.white_king": "White King",
+	"item.chessmod.black_pawn": "Black Pawn",
+	"item.chessmod.black_horsey": "Black Knight",
+	"item.chessmod.black_bishop": "Black Bishop",
+	"item.chessmod.black_rook": "Black Rook",
+	"item.chessmod.black_queen": "Black Queen",
+	"item.chessmod.black_king": "Black King"
+}
