@@ -446,7 +446,7 @@ public class ChessBoardScreen extends ContainerScreen<ChessBoardContainer> {
 					this.drawSlot(slot);
 				}
 
-				if (this.isSlotSelected(slot, (double) mouseX, (double) mouseY) && slot.isEnabled()) {
+				if (this.isPointInRegion(slot.xPos, slot.yPos, 16, 16, mouseX, mouseY) && slot.isEnabled()) {
 					this.hoveredSlot = slot;
 					RenderSystem.disableDepthTest();
 					int x = slot.xPos;
