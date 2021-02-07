@@ -14,7 +14,7 @@ issueTrackerURL="http://my.issue.tracker/" #optional
 
 [[mods]] #mandatory
 
-modId="chessmod" #mandatory
+modId="chesscraft" #mandatory
 
 version="${file.jarVersion}" #mandatory
 
@@ -30,7 +30,7 @@ description='''
 A Chess mod by xX_deadbush_Xx.
 '''
 # A dependency - use the . to indicate dependency for a specific modid. Dependencies are optional.
-[[dependencies.chessmod]] #optional
+[[dependencies.chesscraft]] #optional
     # the modid of the dependency
     modId="forge" #mandatory
     # Does this dependency have to exist - if not, ordering below must be specified
@@ -42,7 +42,7 @@ A Chess mod by xX_deadbush_Xx.
     # Side this dependency is applied on - BOTH, CLIENT or SERVER
     side="BOTH"
 # Here's another dependency
-[[dependencies.chessmod]]
+[[dependencies.chesscraft]]
     modId="minecraft"
     mandatory=true
     versionRange="[1.15.2]"

@@ -1,0 +1,11 @@
+{
+	"chess.move_piece": {
+		"category": "chess",
+		"sounds": [
+			{
+				"name": "chesscraft:chess/move_piece",
+				"stream": true
+			}
+		]
+	}
+}

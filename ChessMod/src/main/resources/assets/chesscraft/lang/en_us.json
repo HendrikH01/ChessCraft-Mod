@@ -1,0 +1,22 @@
+{
+	"block.chesscraft.chess_board": "Chess Board",
+	
+	"item.chesscraft.chess_board_item": "Chess Board",
+	"item.chesscraft.carving_knife": "Carving Knife",
+	
+	"container.chesscraft.chess_board_container": "Chess Board",
+	"itemGroup.chesscraft": "ChessCraft",
+	
+	"item.chesscraft.white_pawn": "White Pawn",
+	"item.chesscraft.white_horsey": "White Knight",
+	"item.chesscraft.white_bishop": "White Bishop",
+	"item.chesscraft.white_rook": "White Rook",
+	"item.chesscraft.white_queen": "White Queen",
+	"item.chesscraft.white_king": "White King",
+	"item.chesscraft.black_pawn": "Black Pawn",
+	"item.chesscraft.black_horsey": "Black Knight",
+	"item.chesscraft.black_bishop": "Black Bishop",
+	"item.chesscraft.black_rook": "Black Rook",
+	"item.chesscraft.black_queen": "Black Queen",
+	"item.chesscraft.black_king": "Black King"
+}

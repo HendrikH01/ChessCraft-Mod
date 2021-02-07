@@ -1,0 +1,6 @@
+{
+  "parent": "chesscraft:block/chess_board",
+  "textures": {
+    "layer0": "chesscraft:blocks/chess_board"
+  }
+}
