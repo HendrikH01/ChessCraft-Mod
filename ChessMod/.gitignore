@@ -23,3 +23,8 @@ run
 
 # Files from Forge MDK
 forge*changelog.txt
+
+# server and testing
+server.properties
+eula
+crash-reports
